@@ -24,11 +24,11 @@ func (m *Manager) Init(moduleName string) error {
 	cmd.Dir = m.projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("go mod init failed: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -38,10 +38,10 @@ func (m *Manager) Tidy() error {
 	cmd.Dir = m.projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("go mod tidy failed: %w", err)
 	}
-	
+
 	return nil
 }

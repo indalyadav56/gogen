@@ -1,15 +1,38 @@
-package routes
+package {{.Package}}
 
+{{- $P := .Entity | ToPascalCase}}
+{{- $route := .Entity | ToLower | Plural}}
+{{- if eq .Router "gin"}}
 import (
-	"github.com/go-chi/chi/v5"
-	"{{.HandlerImport}}"
+	"github.com/gin-gonic/gin"
+
+	hdl "{{.Imports.Handler}}"
 )
 
-func Setup{{.EntityName | ToPascalCase}}Routes(r chi.Router, h handlers.{{.EntityName | ToPascalCase}}Handler) {
-	r.Route("/v1/{{.EntityName | ToLower}}", func(r chi.Router) {
-		r.Get("/", h.Get{{.EntityName | ToPascalCase}})
-		r.Post("/", h.Create{{.EntityName | ToPascalCase}})
-		r.Put("/{id}", h.Update{{.EntityName | ToPascalCase}})
-		r.Delete("/{id}", h.Delete{{.EntityName | ToPascalCase}})
+// Register{{$P}}Routes mounts the {{.Entity | ToLower}} endpoints onto the group.
+func Register{{$P}}Routes(rg *gin.RouterGroup, h *hdl.{{$P}}Handler) {
+	g := rg.Group("/{{$route}}")
+	g.GET("", h.List)
+	g.POST("", h.Create)
+	g.GET("/:id", h.Get)
+	g.PUT("/:id", h.Update)
+	g.DELETE("/:id", h.Delete)
+}
+{{- else}}
+import (
+	"github.com/go-chi/chi/v5"
+
+	hdl "{{.Imports.Handler}}"
+)
+
+// Register{{$P}}Routes mounts the {{.Entity | ToLower}} endpoints onto the router.
+func Register{{$P}}Routes(r chi.Router, h *hdl.{{$P}}Handler) {
+	r.Route("/{{$route}}", func(r chi.Router) {
+		r.Get("/", h.List)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.Get)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
 	})
 }
+{{- end}}

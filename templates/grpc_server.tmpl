@@ -1,0 +1,33 @@
+package grpcserver
+
+import (
+	"net"
+
+	"google.golang.org/grpc"
+)
+
+// Server is a thin wrapper around a gRPC server. Register your generated
+// service implementations on srv before calling Start.
+type Server struct {
+	srv  *grpc.Server
+	addr string
+}
+
+// New constructs a gRPC server bound to addr (e.g. ":9090").
+func New(addr string) *Server {
+	return &Server{srv: grpc.NewServer(), addr: addr}
+}
+
+// Start listens on the configured address and serves until Stop is called.
+func (s *Server) Start() error {
+	lis, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return err
+	}
+	return s.srv.Serve(lis)
+}
+
+// Stop gracefully drains in-flight RPCs and stops the server.
+func (s *Server) Stop() {
+	s.srv.GracefulStop()
+}

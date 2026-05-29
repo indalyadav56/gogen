@@ -1,0 +1,27 @@
+package main
+
+import "github.com/spf13/viper"
+
+type config struct {
+	Port string
+}
+
+// loadConfig reads configs/config.yaml (optional) with env override (SERVER_PORT).
+func loadConfig() (config, error) {
+	v := viper.New()
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
+	v.AddConfigPath("./configs")
+	v.AddConfigPath(".")
+
+	v.SetDefault("server.port", "8080")
+	_ = v.BindEnv("server.port", "SERVER_PORT")
+
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return config{}, err
+		}
+	}
+
+	return config{Port: v.GetString("server.port")}, nil
+}

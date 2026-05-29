@@ -1,2 +1,16 @@
-example-project
-gogen
+# Compiled binary
+/gogen
+/bin/
+
+# Scratch / generated example projects
+example-project/
+examples/
+
+# Test & coverage output
+*.out
+coverage.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

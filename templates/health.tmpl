@@ -1,0 +1,26 @@
+package health
+
+{{- if eq .Router "gin"}}
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Handler responds with service liveness status.
+func Handler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+{{- else}}
+import (
+	"encoding/json"
+	"net/http"
+)
+
+// Handler responds with service liveness status.
+func Handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+{{- end}}

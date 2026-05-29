@@ -1,132 +1,76 @@
 package generator
 
 import (
-	"embed"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	goembed "github.com/indalyadav56/gogen"
 	"github.com/indalyadav56/gogen/internal/cli"
 )
 
-func TestNewProjectGenerator(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "github.com/test/project",
-		Entities:   []string{"user"},
-		Monolith:   false,
-		UseGin:     false,
+// TestScaffoldArchitectures generates each architecture into a temp dir and
+// asserts every produced .go file parses, then checks a marker file exists.
+func TestScaffoldArchitectures(t *testing.T) {
+	markers := map[string]string{
+		"simple":       "user.go",
+		"layered":      "internal/service/user_service.go",
+		"clean":        "internal/application/user_service.go",
+		"microservice": "internal/transport/grpc/server.go",
+		"monolith":     "internal/user/application/user_service.go",
 	}
 
-	generator := NewProjectGenerator(config, mockFS)
+	for _, arch := range cli.Architectures {
+		for _, router := range cli.Routers {
+			t.Run(arch+"_"+router, func(t *testing.T) {
+				root := t.TempDir()
+				cfg := &cli.Config{
+					ModuleName: "github.com/test/demo",
+					Arch:       arch,
+					Router:     router,
+					DB:         "postgres",
+					Entities:   []string{"User", "Product"},
+				}
 
-	if generator == nil {
-		t.Error("NewProjectGenerator() returned nil")
-	}
-	if generator.config != config {
-		t.Error("config not set correctly")
+				g := NewProjectGenerator(cfg, goembed.TemplateFS)
+				g.projectRoot = root // write directly into the temp dir
+
+				if err := g.Scaffold(); err != nil {
+					t.Fatalf("Scaffold() error = %v", err)
+				}
+
+				parseGoFiles(t, root)
+
+				marker := filepath.Join(root, markers[arch])
+				if _, err := os.Stat(marker); err != nil {
+					t.Errorf("expected marker file %s: %v", markers[arch], err)
+				}
+			})
+		}
 	}
 }
 
-func TestProjectGenerator_Generate_Microservice(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "github.com/test/project",
-		Entities:   []string{"user"},
-		Monolith:   false,
-		UseGin:     false,
-	}
-
-	generator := NewProjectGenerator(config, mockFS)
-
-	// Test generation (will fail due to missing templates, but we can test structure)
-	err := generator.Generate()
-
-	// We expect an error due to missing templates or directory creation
+func parseGoFiles(t *testing.T, root string) {
+	t.Helper()
+	fset := token.NewFileSet()
+	count := 0
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return err
+		}
+		count++
+		if _, perr := parser.ParseFile(fset, path, nil, parser.AllErrors); perr != nil {
+			t.Errorf("parse %s: %v", path, perr)
+		}
+		return nil
+	})
 	if err != nil {
-		t.Logf("Expected error due to missing templates or directory creation: %v", err)
+		t.Fatal(err)
 	}
-}
-
-func TestProjectGenerator_Generate_Monolith(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "github.com/test/project",
-		Entities:   []string{"user", "product"},
-		Monolith:   true,
-		UseGin:     true,
-	}
-
-	generator := NewProjectGenerator(config, mockFS)
-
-	// Test generation (will fail due to missing templates, but we can test structure)
-	err := generator.Generate()
-
-	// We expect an error due to missing templates or directory creation
-	if err != nil {
-		t.Logf("Expected error due to missing templates or directory creation: %v", err)
-	}
-}
-
-func TestProjectGenerator_Generate_EmptyEntities(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "github.com/test/project",
-		Entities:   []string{}, // Empty entities
-		Monolith:   false,
-		UseGin:     false,
-	}
-
-	generator := NewProjectGenerator(config, mockFS)
-
-	// Test generation with empty entities
-	err := generator.Generate()
-
-	// Should handle empty entities gracefully
-	if err != nil {
-		// Error is expected due to missing templates, but should not panic
-		t.Logf("Expected error due to missing templates: %v", err)
-	}
-}
-
-func TestProjectGenerator_Generate_InvalidModuleName(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "", // Invalid empty module name
-		Entities:   []string{"user"},
-		Monolith:   false,
-		UseGin:     false,
-	}
-
-	generator := NewProjectGenerator(config, mockFS)
-
-	// Test with invalid module name
-	err := generator.Generate()
-
-	if err == nil {
-		t.Error("Expected error for invalid module name, but got nil")
-	}
-}
-
-func TestProjectGenerator_Generate_MultipleEntities(t *testing.T) {
-	var mockFS embed.FS
-	config := &cli.Config{
-		ModuleName: "github.com/test/project",
-		Entities:   []string{"user", "product", "order"},
-		Monolith:   true,
-		UseGin:     false,
-	}
-
-	generator := NewProjectGenerator(config, mockFS)
-
-	// Test generation with multiple entities
-	err := generator.Generate()
-
-	// We expect an error due to missing templates or directory creation
-	if err != nil {
-		t.Logf("Expected error due to missing templates or directory creation: %v", err)
-	}
-
-	// Verify config has multiple entities
-	if len(config.Entities) != 3 {
-		t.Errorf("Expected 3 entities, got %d", len(config.Entities))
+	if count == 0 {
+		t.Error("no .go files generated")
 	}
 }

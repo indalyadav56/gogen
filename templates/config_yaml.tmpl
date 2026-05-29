@@ -1,0 +1,11 @@
+# {{.Project}} configuration.
+# Any value can be overridden by an environment variable:
+#   server.port  -> SERVER_PORT
+#   database.url -> DATABASE_URL
+server:
+  port: "8080"
+{{- if ne .Arch "simple"}}
+
+database:
+  url: "postgres://postgres:postgres@localhost:5432/{{.Project}}?sslmode=disable"
+{{- end}}

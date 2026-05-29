@@ -1,5 +1,46 @@
 package config
 
-type Config struct{
-    Port string `json:"port"`
+import "github.com/spf13/viper"
+
+// Config holds runtime configuration. Values come from configs/config.yaml,
+// overridden by environment variables (SERVER_PORT, DATABASE_URL).
+type Config struct {
+	Server   ServerConfig
+	Database DatabaseConfig
+}
+
+type ServerConfig struct {
+	Port string
+}
+
+type DatabaseConfig struct {
+	URL string
+}
+
+// Load reads configs/config.yaml (optional) and applies env overrides.
+func Load() (*Config, error) {
+	v := viper.New()
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
+	v.AddConfigPath("./configs")
+	v.AddConfigPath(".")
+
+	v.SetDefault("server.port", "8080")
+	v.SetDefault("database.url", "postgres://postgres:postgres@localhost:5432/{{.Project}}?sslmode=disable")
+
+	_ = v.BindEnv("server.port", "SERVER_PORT")
+	_ = v.BindEnv("database.url", "DATABASE_URL")
+
+	if err := v.ReadInConfig(); err != nil {
+		// The config file is optional; defaults and env still apply.
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
+	}
+
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }

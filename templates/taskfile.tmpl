@@ -1,9 +1,18 @@
 version: "3"
+
 tasks:
   run:
     cmds:
-      - go run cmd/main.go
-  
+      - go run ./{{if eq .Arch "simple"}}.{{else}}cmd/server{{end}}
   build:
     cmds:
-      - go build -o main cmd/main.go
+      - go build -o bin/server ./{{if eq .Arch "simple"}}.{{else}}cmd/server{{end}}
+  test:
+    cmds:
+      - go test ./...
+  tidy:
+    cmds:
+      - go mod tidy
+  lint:
+    cmds:
+      - golangci-lint run

@@ -1,0 +1,152 @@
+package main
+
+{{- $P := .Entity | ToPascalCase}}
+{{- $c := .Entity | ToCamelCase}}
+{{- $route := .Entity | ToLower | Plural}}
+{{- if eq .Router "gin"}}
+import (
+	"net/http"
+	"strconv"
+	"sync"
+
+	"github.com/gin-gonic/gin"
+)
+
+// {{$P}} is an in-memory {{.Entity | ToLower}} record.
+type {{$P}} struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+var (
+	{{$c}}Mu    sync.Mutex
+	{{$c}}Store = map[int64]*{{$P}}{}
+	{{$c}}Seq   int64
+)
+
+func register{{$P}}Routes(rg *gin.RouterGroup) {
+	g := rg.Group("/{{$route}}")
+	g.GET("", list{{$P}})
+	g.POST("", create{{$P}})
+	g.GET("/:id", get{{$P}})
+	g.DELETE("/:id", delete{{$P}})
+}
+
+func list{{$P}}(c *gin.Context) {
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	out := make([]*{{$P}}, 0, len({{$c}}Store))
+	for _, v := range {{$c}}Store {
+		out = append(out, v)
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func create{{$P}}(c *gin.Context) {
+	var in {{$P}}
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	{{$c}}Seq++
+	in.ID = {{$c}}Seq
+	{{$c}}Store[in.ID] = &in
+	c.JSON(http.StatusCreated, in)
+}
+
+func get{{$P}}(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	v, ok := {{$c}}Store[id]
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, v)
+}
+
+func delete{{$P}}(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	delete({{$c}}Store, id)
+	c.Status(http.StatusNoContent)
+}
+{{- else}}
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+	"sync"
+
+	"github.com/go-chi/chi/v5"
+)
+
+// {{$P}} is an in-memory {{.Entity | ToLower}} record.
+type {{$P}} struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+var (
+	{{$c}}Mu    sync.Mutex
+	{{$c}}Store = map[int64]*{{$P}}{}
+	{{$c}}Seq   int64
+)
+
+func register{{$P}}Routes(r chi.Router) {
+	r.Route("/{{$route}}", func(r chi.Router) {
+		r.Get("/", list{{$P}})
+		r.Post("/", create{{$P}})
+		r.Get("/{id}", get{{$P}})
+		r.Delete("/{id}", delete{{$P}})
+	})
+}
+
+func list{{$P}}(w http.ResponseWriter, r *http.Request) {
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	out := make([]*{{$P}}, 0, len({{$c}}Store))
+	for _, v := range {{$c}}Store {
+		out = append(out, v)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func create{{$P}}(w http.ResponseWriter, r *http.Request) {
+	var in {{$P}}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	{{$c}}Seq++
+	in.ID = {{$c}}Seq
+	{{$c}}Store[in.ID] = &in
+	writeJSON(w, http.StatusCreated, in)
+}
+
+func get{{$P}}(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	v, ok := {{$c}}Store[id]
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+func delete{{$P}}(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	{{$c}}Mu.Lock()
+	defer {{$c}}Mu.Unlock()
+	delete({{$c}}Store, id)
+	w.WriteHeader(http.StatusNoContent)
+}
+{{- end}}

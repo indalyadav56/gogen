@@ -1,47 +1,87 @@
 package {{.Package}}
 
+{{- $P := .Entity | ToPascalCase}}
+{{- $route := .Entity | ToLower | Plural}}
+{{- if eq .Router "gin"}}
 import (
 	"net/http"
-	"{{.ServiceImport}}"
+
+	"github.com/gin-gonic/gin"
+
+	svc "{{.Imports.Service}}"
 )
 
-type {{.EntityName | ToPascalCase}}Handler interface {
-	Create{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request)
-	Get{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request)
-	Update{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request)
-	Delete{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request)
-	List{{.EntityName | ToPascalCase}}s(w http.ResponseWriter, r *http.Request)
+// {{$P}}Handler exposes {{.Entity | ToLower}} HTTP endpoints.
+type {{$P}}Handler struct {
+	service *svc.{{$P}}Service
 }
 
-type {{.EntityName | ToCamelCase}}Handler struct {
-	service application.{{.EntityName | ToPascalCase}}Service
+// New{{$P}}Handler wires a {{.Entity | ToLower}} handler to its service.
+func New{{$P}}Handler(service *svc.{{$P}}Service) *{{$P}}Handler {
+	return &{{$P}}Handler{service: service}
+}
+{{- if .EmbedRoutes}}
+
+// RegisterRoutes mounts the {{.Entity | ToLower}} routes onto the given group.
+func (h *{{$P}}Handler) RegisterRoutes(rg *gin.RouterGroup) {
+	g := rg.Group("/{{$route}}")
+	g.GET("", h.List)
+	g.POST("", h.Create)
+	g.GET("/:id", h.Get)
+	g.PUT("/:id", h.Update)
+	g.DELETE("/:id", h.Delete)
+}
+{{- end}}
+
+func (h *{{$P}}Handler) List(c *gin.Context)   { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+func (h *{{$P}}Handler) Create(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+func (h *{{$P}}Handler) Get(c *gin.Context)    { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+func (h *{{$P}}Handler) Update(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+func (h *{{$P}}Handler) Delete(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+{{- else}}
+import (
+	"encoding/json"
+	"net/http"
+{{- if .EmbedRoutes}}
+
+	"github.com/go-chi/chi/v5"
+{{- end}}
+
+	svc "{{.Imports.Service}}"
+)
+
+// {{$P}}Handler exposes {{.Entity | ToLower}} HTTP endpoints.
+type {{$P}}Handler struct {
+	service *svc.{{$P}}Service
 }
 
-func New{{.EntityName | ToPascalCase}}Handler(service application.{{.EntityName | ToPascalCase}}Service) {{.EntityName | ToPascalCase}}Handler {
-	return &{{.EntityName | ToCamelCase}}Handler{
-		service: service,
-	}
+// New{{$P}}Handler wires a {{.Entity | ToLower}} handler to its service.
+func New{{$P}}Handler(service *svc.{{$P}}Service) *{{$P}}Handler {
+	return &{{$P}}Handler{service: service}
 }
+{{- if .EmbedRoutes}}
 
-func (h *{{.EntityName | ToCamelCase}}Handler) Create{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request) {
-	
+// RegisterRoutes mounts the {{.Entity | ToLower}} routes onto the given router.
+func (h *{{$P}}Handler) RegisterRoutes(r chi.Router) {
+	r.Route("/{{$route}}", func(r chi.Router) {
+		r.Get("/", h.List)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.Get)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 }
+{{- end}}
 
+func (h *{{$P}}Handler) List(w http.ResponseWriter, r *http.Request)   { h.writeJSON(w) }
+func (h *{{$P}}Handler) Create(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
+func (h *{{$P}}Handler) Get(w http.ResponseWriter, r *http.Request)    { h.writeJSON(w) }
+func (h *{{$P}}Handler) Update(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
+func (h *{{$P}}Handler) Delete(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
 
-func (h *{{.EntityName | ToCamelCase}}Handler) Get{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request) {
-	
+func (h *{{$P}}Handler) writeJSON(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotImplemented)
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "not implemented"})
 }
-
-
-func (h *{{.EntityName | ToCamelCase}}Handler) Update{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request) {
-	
-}
-
-
-func (h *{{.EntityName | ToCamelCase}}Handler) Delete{{.EntityName | ToPascalCase}}(w http.ResponseWriter, r *http.Request) {
-	
-}
-
-func (h *{{.EntityName | ToCamelCase}}Handler) List{{.EntityName | ToPascalCase}}s(w http.ResponseWriter, r *http.Request) {
-	
-}
+{{- end}}
