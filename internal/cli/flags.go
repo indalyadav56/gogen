@@ -2,55 +2,109 @@ package cli
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"strings"
 )
 
-// stringSlice implements flag.Value interface for handling multiple string flags
+// stringSlice implements flag.Value for repeatable string flags.
 type stringSlice []string
 
-func (s *stringSlice) String() string {
-	return strings.Join(*s, ",")
-}
+func (s *stringSlice) String() string { return strings.Join(*s, ",") }
 
 func (s *stringSlice) Set(value string) error {
-	*s = append(*s, value)
+	for _, v := range strings.Split(value, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			*s = append(*s, v)
+		}
+	}
 	return nil
 }
 
-// Config holds all CLI configuration
+// Allowed values for the validated flags.
+var (
+	Architectures = []string{"simple", "layered", "clean", "microservice", "monolith"}
+	Routers       = []string{"gin", "chi"}
+	Databases     = []string{"postgres"}
+)
+
+// Config holds all CLI configuration for a generation run.
 type Config struct {
 	ModuleName string
-	Monolith   bool
+	Arch       string
 	Entities   []string
-	UseGin     bool
-	UseAuth    bool
+	Router     string
+	DB         string
 }
 
-// ParseFlags parses command line flags and returns configuration
-func ParseFlags() *Config {
-	config := &Config{}
-	
-	moduleFlag := flag.String("module", "github.com/username/golang_project", "Go module name (e.g. github.com/user/project)")
-	monolithFlag := flag.Bool("monolith", false, "for monolith architecture")
-	ginFlag := flag.Bool("gin", false, "use Gin framework instead of Chi for HTTP routing")
-	authFlag := flag.Bool("auth", false, "generate RBAC-based authentication system with JWT")
-	
+// ParseFlags parses os.Args and returns a validated Config.
+func ParseFlags() (*Config, error) {
+	return parseArgs(os.Args[1:])
+}
+
+// parseArgs parses an explicit argument slice. A leading "new" subcommand is
+// accepted (and ignored) so both `gogen --module ...` and `gogen new --module
+// ...` work.
+func parseArgs(args []string) (*Config, error) {
+	if len(args) > 0 && args[0] == "new" {
+		args = args[1:]
+	}
+
+	fs := flag.NewFlagSet("gogen", flag.ContinueOnError)
+	module := fs.String("module", "github.com/username/project", "Go module path (e.g. github.com/you/project)")
+	arch := fs.String("arch", "clean", "architecture: "+strings.Join(Architectures, "|"))
+	router := fs.String("router", "gin", "http router: "+strings.Join(Routers, "|"))
+	db := fs.String("db", "postgres", "database: "+strings.Join(Databases, "|"))
+
 	var entities stringSlice
-	flag.Var(&entities, "entity", "Specify one or more entity names. Example: --entity User --entity Product")
-	
-	flag.Parse()
-	
-	config.ModuleName = *moduleFlag
-	config.Monolith = *monolithFlag
-	config.Entities = entities
-	config.UseGin = *ginFlag
-	config.UseAuth = *authFlag
-	
-	return config
+	fs.Var(&entities, "entity", "entity name; repeatable (e.g. --entity User --entity Product)")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	if len(entities) == 0 {
+		entities = stringSlice{"Item"}
+	}
+
+	cfg := &Config{
+		ModuleName: *module,
+		Arch:       strings.ToLower(*arch),
+		Entities:   entities,
+		Router:     strings.ToLower(*router),
+		DB:         strings.ToLower(*db),
+	}
+
+	return cfg, cfg.validate()
 }
 
-// GetProjectRoot extracts project root name from module name
+func (c *Config) validate() error {
+	if c.ModuleName == "" {
+		return fmt.Errorf("--module is required")
+	}
+	if !contains(Architectures, c.Arch) {
+		return fmt.Errorf("invalid --arch %q (allowed: %s)", c.Arch, strings.Join(Architectures, ", "))
+	}
+	if !contains(Routers, c.Router) {
+		return fmt.Errorf("invalid --router %q (allowed: %s)", c.Router, strings.Join(Routers, ", "))
+	}
+	if !contains(Databases, c.DB) {
+		return fmt.Errorf("invalid --db %q (allowed: %s)", c.DB, strings.Join(Databases, ", "))
+	}
+	return nil
+}
+
+// GetProjectRoot extracts the project root directory name from the module path.
 func (c *Config) GetProjectRoot() string {
-	moduleParts := strings.Split(c.ModuleName, "/")
-	return moduleParts[len(moduleParts)-1]
+	parts := strings.Split(c.ModuleName, "/")
+	return parts[len(parts)-1]
+}
+
+func contains(set []string, v string) bool {
+	for _, s := range set {
+		if s == v {
+			return true
+		}
+	}
+	return false
 }

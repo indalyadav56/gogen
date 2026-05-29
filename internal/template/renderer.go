@@ -9,97 +9,126 @@ import (
 	"text/template"
 )
 
-// Renderer handles template rendering operations
+// Renderer handles template rendering operations against an embedded FS.
 type Renderer struct {
 	templateFS embed.FS
 }
 
-// NewRenderer creates a new template renderer
+// NewRenderer creates a new template renderer backed by the given embedded FS.
 func NewRenderer(templateFS embed.FS) *Renderer {
-	return &Renderer{
-		templateFS: templateFS,
-	}
+	return &Renderer{templateFS: templateFS}
 }
 
-// Data represents template data
+// Imports holds the per-architecture package import paths consumed by the
+// shared business templates (handler/service/repository/...). Populating these
+// in the blueprint keeps the templates architecture-agnostic.
+type Imports struct {
+	Domain     string // entities + repository interfaces (or just entities)
+	Entity     string // entity package import path
+	Repository string // repository interface import path
+	Service    string // application/service import path
+	Infra      string // infrastructure (postgres) import path
+	Handler    string // http handler import path
+	Routes     string // http routes import path
+	DTO        string // dto import path
+}
+
+// Data is the single, architecture-agnostic payload passed to every template.
 type Data struct {
-	Package     string
-	ProjectRoot string
-	ModuleName  string
-	EntityName  string
-	Entities    []string
-	IsMonolith  bool
-	UseGin      bool
-	UseAuth     bool
-	// Import paths for different architectures
-	HandlerImport     string
-	ServiceImport     string
-	RepositoryImport  string
-	EntityImport      string
-	InfraImport       string
-	RoutesImport      string
-	// Auth-specific import paths for separate bounded contexts
-	UserEntityImport      string
-	UserRepositoryImport  string
-	RoleEntityImport      string
-	RoleRepositoryImport  string
-	PermissionEntityImport      string
-	PermissionRepositoryImport  string
-	AuthServiceImport     string
-	UserServiceImport     string
-	RoleServiceImport     string
+	Module   string // go module path, e.g. github.com/you/proj
+	Project  string // project root / binary name
+	Arch     string // simple|layered|clean|microservice|monolith
+	Router   string // gin|chi
+	DB       string // postgres
+	Package  string // Go package name of the file being rendered
+	Entity   string // current entity (when rendering a per-entity file)
+	Entities []string
+	Imports  Imports
+
+	// RepoIsInterface is true for architectures with a domain repository
+	// interface (clean/microservice/monolith) and false where the postgres
+	// repository is used concretely (layered).
+	RepoIsInterface bool
+	// EmbedRoutes is true when route registration lives on the handler
+	// (simple/layered) instead of a dedicated routes package.
+	EmbedRoutes bool
 }
 
-// RenderToFile renders a template to a file
+// FuncMap returns the template helper functions shared by all templates.
+func FuncMap() template.FuncMap {
+	return template.FuncMap{
+		"ToLower":      strings.ToLower,
+		"ToUpper":      strings.ToUpper,
+		"ToCamelCase":  toCamel,
+		"ToPascalCase": toPascal,
+		"Plural":       plural,
+	}
+}
+
+func toCamel(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToLower(s[:1]) + s[1:]
+}
+
+func toPascal(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// plural returns a naive English plural — good enough for generated identifiers.
+func plural(s string) string {
+	if s == "" {
+		return s
+	}
+	switch {
+	case strings.HasSuffix(s, "y") && !endsInVowelY(s):
+		return s[:len(s)-1] + "ies"
+	case strings.HasSuffix(s, "s"), strings.HasSuffix(s, "x"),
+		strings.HasSuffix(s, "z"), strings.HasSuffix(s, "ch"),
+		strings.HasSuffix(s, "sh"):
+		return s + "es"
+	default:
+		return s + "s"
+	}
+}
+
+func endsInVowelY(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	switch s[len(s)-2] {
+	case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
+		return true
+	}
+	return false
+}
+
+// RenderToFile renders the named embedded template to outputPath.
 func (r *Renderer) RenderToFile(templatePath, outputPath string, data Data) error {
-	// Define custom template functions
-	funcMap := template.FuncMap{
-		"ToLower": func(s string) string {
-			return strings.ToLower(s)
-		},
-		"ToUpper": func(s string) string {
-			return strings.ToUpper(s)
-		},
-		"ToCamelCase": func(s string) string {
-			if len(s) == 0 {
-				return s
-			}
-			return strings.ToLower(s[:1]) + s[1:]
-		},
-		"ToPascalCase": func(s string) string {
-			if len(s) == 0 {
-				return s
-			}
-			return strings.ToUpper(s[:1]) + s[1:]
-		},
-	}
+	templatePath = strings.ReplaceAll(templatePath, "\\", "/")
 
-	// Ensure template path uses forward slashes for embedded filesystem
-	templatePathNormalized := strings.ReplaceAll(templatePath, "\\", "/")
-
-	// Read template content from embedded filesystem
-	templateContent, err := r.templateFS.ReadFile(templatePathNormalized)
+	content, err := r.templateFS.ReadFile(templatePath)
 	if err != nil {
-		return fmt.Errorf("failed to read embedded template file %s: %w", templatePathNormalized, err)
+		return fmt.Errorf("failed to read embedded template %s: %w", templatePath, err)
 	}
 
-	// Parse template from content with custom functions
-	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(funcMap).Parse(string(templateContent))
+	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(FuncMap()).Parse(string(content))
 	if err != nil {
-		return fmt.Errorf("failed to parse template content: %w", err)
+		return fmt.Errorf("failed to parse template %s: %w", templatePath, err)
 	}
 
-	// Create file to write rendered content
 	file, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return fmt.Errorf("failed to create output file %s: %w", outputPath, err)
 	}
 	defer file.Close()
 
-	// Execute template
 	if err := tmpl.Execute(file, data); err != nil {
-		return fmt.Errorf("failed to execute template: %w", err)
+		return fmt.Errorf("failed to execute template %s: %w", templatePath, err)
 	}
-
 	return nil
 }

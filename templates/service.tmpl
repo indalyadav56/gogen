@@ -1,53 +1,41 @@
-package application
+package {{.Package}}
 
 import (
 	"context"
-	"log/slog"
 
-	"{{.RepositoryImport}}"
-	"{{.EntityImport}}"
+	ent "{{.Imports.Entity}}"
+	repo "{{.Imports.Repository}}"
 )
 
-type {{.EntityName | ToPascalCase}}Service interface {
-	Create(item *entity.{{.EntityName | ToPascalCase}}) (*entity.{{.EntityName | ToPascalCase}}, error)
-	GetByID(id string) (*entity.{{.EntityName | ToPascalCase}}, error)
-	Update(id string, item *entity.{{.EntityName | ToPascalCase}}) (*entity.{{.EntityName | ToPascalCase}}, error)
-	Delete(id string) error
+{{- $repoType := printf "*repo.%sRepository" (.Entity | ToPascalCase)}}
+{{- if .RepoIsInterface}}{{$repoType = printf "repo.%sRepository" (.Entity | ToPascalCase)}}{{end}}
+
+// {{.Entity | ToPascalCase}}Service holds the {{.Entity | ToLower}} use cases.
+type {{.Entity | ToPascalCase}}Service struct {
+	repo {{$repoType}}
 }
 
-type {{.EntityName | ToCamelCase}}Service struct {
-	repo repository.{{.EntityName | ToPascalCase}}Repository
+// New{{.Entity | ToPascalCase}}Service builds a {{.Entity | ToLower}} service over the given repository.
+func New{{.Entity | ToPascalCase}}Service(r {{$repoType}}) *{{.Entity | ToPascalCase}}Service {
+	return &{{.Entity | ToPascalCase}}Service{repo: r}
 }
 
-func New{{.EntityName | ToPascalCase}}Service(repo repository.{{.EntityName | ToPascalCase}}Repository) {{.EntityName | ToPascalCase}}Service {
-	return &{{.EntityName | ToCamelCase}}Service{
-		repo: repo,
-	}
+func (s *{{.Entity | ToPascalCase}}Service) Create(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	return s.repo.Create(ctx, m)
 }
 
-func (s *{{.EntityName | ToCamelCase}}Service) Create(item *entity.{{.EntityName | ToPascalCase}}) (*entity.{{.EntityName | ToPascalCase}}, error) {
-	slog.Info("creating user")
-	err := s.repo.Insert(context.Background(), item)
-	if err != nil {
-		return nil, err
-	}
-
-	return item, nil
+func (s *{{.Entity | ToPascalCase}}Service) Get(ctx context.Context, id int64) (*ent.{{.Entity | ToPascalCase}}, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
-func (s *{{.EntityName | ToCamelCase}}Service) GetByID(id string) (*entity.{{.EntityName | ToPascalCase}}, error) {
-	return s.repo.FindByID(context.Background(), id)
+func (s *{{.Entity | ToPascalCase}}Service) List(ctx context.Context) ([]*ent.{{.Entity | ToPascalCase}}, error) {
+	return s.repo.List(ctx)
 }
 
-func (s *{{.EntityName | ToCamelCase}}Service) Update(id string, item *entity.{{.EntityName | ToPascalCase}}) (*entity.{{.EntityName | ToPascalCase}}, error) {
-	err := s.repo.Update(context.Background(), item)
-	if err != nil {
-		return nil, err
-	}
-
-	return item, nil
+func (s *{{.Entity | ToPascalCase}}Service) Update(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	return s.repo.Update(ctx, m)
 }
 
-func (s *{{.EntityName | ToCamelCase}}Service) Delete(id string) error {
-	return s.repo.Delete(context.Background(), id)
+func (s *{{.Entity | ToPascalCase}}Service) Delete(ctx context.Context, id int64) error {
+	return s.repo.Delete(ctx, id)
 }
