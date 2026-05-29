@@ -1,0 +1,87 @@
+package main
+
+{{- if eq .Router "gin"}}
+import (
+	"log"
+
+	"github.com/gin-gonic/gin"
+
+	"{{.Module}}/config"
+	"{{.Module}}/internal/application"
+	"{{.Module}}/internal/infrastructure/postgres"
+	"{{.Module}}/internal/transport/http/v1/handlers"
+	"{{.Module}}/internal/transport/http/v1/routes"
+	"{{.Module}}/pkg/db"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	database, err := db.New(cfg.Database.URL)
+	if err != nil {
+		log.Fatalf("db: %v", err)
+	}
+	defer database.Close()
+
+	r := gin.Default()
+	v1 := r.Group("/api/v1")
+{{range .Entities}}
+	{{. | ToCamelCase}}Repo := postgres.New{{. | ToPascalCase}}Repository(database)
+	{{. | ToCamelCase}}Svc := application.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
+	{{. | ToCamelCase}}Handler := handlers.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
+	routes.Register{{. | ToPascalCase}}Routes(v1, {{. | ToCamelCase}}Handler)
+{{end}}
+	log.Printf("listening on :%s", cfg.Server.Port)
+	if err := r.Run(":" + cfg.Server.Port); err != nil {
+		log.Fatal(err)
+	}
+}
+{{- else}}
+import (
+	"log"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"{{.Module}}/config"
+	"{{.Module}}/internal/application"
+	"{{.Module}}/internal/infrastructure/postgres"
+	"{{.Module}}/internal/transport/http/v1/handlers"
+	"{{.Module}}/internal/transport/http/v1/routes"
+	"{{.Module}}/pkg/db"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	database, err := db.New(cfg.Database.URL)
+	if err != nil {
+		log.Fatalf("db: %v", err)
+	}
+	defer database.Close()
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+{{range .Entities}}
+	{{. | ToCamelCase}}Repo := postgres.New{{. | ToPascalCase}}Repository(database)
+	{{. | ToCamelCase}}Svc := application.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
+	{{. | ToCamelCase}}Handler := handlers.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
+{{end}}
+	r.Route("/api/v1", func(r chi.Router) {
+{{- range .Entities}}
+		routes.Register{{. | ToPascalCase}}Routes(r, {{. | ToCamelCase}}Handler)
+{{- end}}
+	})
+
+	log.Printf("listening on :%s", cfg.Server.Port)
+	log.Fatal(http.ListenAndServe(":"+cfg.Server.Port, r))
+}
+{{- end}}

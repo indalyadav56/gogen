@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"flag"
-	"os"
 	"reflect"
 	"testing"
 )
@@ -12,143 +10,79 @@ func TestParseFlags(t *testing.T) {
 		name     string
 		args     []string
 		expected Config
+		wantErr  bool
 	}{
 		{
-			name: "default values",
-			args: []string{},
+			name: "defaults",
+			args: []string{"--module", "github.com/x/y"},
 			expected: Config{
-				ModuleName: "github.com/username/golang_project",
-				Monolith:   false,
-				Entities:   []string{},
-				UseGin:     false,
+				ModuleName: "github.com/x/y", Arch: "clean", Router: "gin", DB: "postgres",
+				Entities: []string{"Item"},
 			},
 		},
 		{
-			name: "custom module name",
-			args: []string{"--module", "github.com/test/project"},
+			name: "new subcommand ignored",
+			args: []string{"new", "--module", "github.com/x/y", "--arch", "monolith"},
 			expected: Config{
-				ModuleName: "github.com/test/project",
-				Monolith:   false,
-				Entities:   []string{},
-				UseGin:     false,
+				ModuleName: "github.com/x/y", Arch: "monolith", Router: "gin", DB: "postgres",
+				Entities: []string{"Item"},
 			},
 		},
 		{
-			name: "monolith flag",
-			args: []string{"--monolith"},
-			expected: Config{
-				ModuleName: "github.com/username/golang_project",
-				Monolith:   true,
-				Entities:   []string{},
-				UseGin:     false,
-			},
-		},
-		{
-			name: "gin flag",
-			args: []string{"--gin"},
-			expected: Config{
-				ModuleName: "github.com/username/golang_project",
-				Monolith:   false,
-				Entities:   []string{},
-				UseGin:     true,
-			},
-		},
-		{
-			name: "single entity",
-			args: []string{"--entity", "user"},
-			expected: Config{
-				ModuleName: "github.com/username/golang_project",
-				Monolith:   false,
-				Entities:   []string{"user"},
-				UseGin:     false,
-			},
-		},
-		{
-			name: "multiple entities",
-			args: []string{"--entity", "user", "--entity", "product"},
-			expected: Config{
-				ModuleName: "github.com/username/golang_project",
-				Monolith:   false,
-				Entities:   []string{"user", "product"},
-				UseGin:     false,
-			},
-		},
-		{
-			name: "all flags combined",
+			name: "all flags",
 			args: []string{
-				"--module", "github.com/company/api",
-				"--entity", "user",
-				"--entity", "order",
-				"--monolith",
-				"--gin",
+				"--module", "github.com/c/api", "--arch", "layered", "--router", "chi",
+				"--db", "postgres", "--entity", "User", "--entity", "Order",
 			},
 			expected: Config{
-				ModuleName: "github.com/company/api",
-				Monolith:   true,
-				Entities:   []string{"user", "order"},
-				UseGin:     true,
+				ModuleName: "github.com/c/api", Arch: "layered", Router: "chi", DB: "postgres",
+				Entities: []string{"User", "Order"},
 			},
+		},
+		{
+			name:    "invalid arch errors",
+			args:    []string{"--module", "github.com/x/y", "--arch", "bogus"},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset flag.CommandLine for each test
-			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-			
-			// Set os.Args to simulate command line input
-			oldArgs := os.Args
-			os.Args = append([]string{"gogen"}, tt.args...)
-			defer func() { os.Args = oldArgs }()
-
-			config := ParseFlags()
-
-			if !reflect.DeepEqual(config, tt.expected) {
-				t.Errorf("ParseFlags() = %+v, want %+v", config, tt.expected)
+			cfg, err := parseArgs(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseArgs() err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if !reflect.DeepEqual(*cfg, tt.expected) {
+				t.Errorf("parseArgs() = %+v, want %+v", *cfg, tt.expected)
 			}
 		})
 	}
 }
 
-func TestStringSlice(t *testing.T) {
-	tests := []struct {
-		name     string
-		values   []string
-		expected string
-	}{
-		{
-			name:     "empty slice",
-			values:   []string{},
-			expected: "",
-		},
-		{
-			name:     "single value",
-			values:   []string{"user"},
-			expected: "user",
-		},
-		{
-			name:     "multiple values",
-			values:   []string{"user", "product", "order"},
-			expected: "user,product,order",
-		},
+func TestGetProjectRoot(t *testing.T) {
+	cases := map[string]string{
+		"github.com/user/myapp": "myapp",
+		"example.com/a/b/c":     "c",
+		"single":                "single",
 	}
+	for module, want := range cases {
+		if got := (&Config{ModuleName: module}).GetProjectRoot(); got != want {
+			t.Errorf("GetProjectRoot(%q) = %q, want %q", module, got, want)
+		}
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var ss stringSlice
-			for _, v := range tt.values {
-				ss.Set(v)
-			}
-
-			result := ss.String()
-			if result != tt.expected {
-				t.Errorf("String() = %v, want %v", result, tt.expected)
-			}
-
-			// Test that the slice contains expected values
-			if !reflect.DeepEqual([]string(ss), tt.values) {
-				t.Errorf("stringSlice = %v, want %v", []string(ss), tt.values)
-			}
-		})
+func TestStringSliceSet(t *testing.T) {
+	var s stringSlice
+	_ = s.Set("User, Product")
+	_ = s.Set("Order")
+	if !reflect.DeepEqual([]string(s), []string{"User", "Product", "Order"}) {
+		t.Errorf("unexpected entities: %#v", s)
+	}
+	if s.String() != "User,Product,Order" {
+		t.Errorf("String() = %q", s.String())
 	}
 }

@@ -1,0 +1,47 @@
+package {{.Package}}
+
+import (
+	"context"
+	"database/sql"
+
+	ent "{{.Imports.Entity}}"
+{{- if .RepoIsInterface}}
+
+	repo "{{.Imports.Repository}}"
+{{- end}}
+)
+
+// {{.Entity | ToPascalCase}}Repository is the Postgres-backed {{.Entity | ToLower}} repository.
+type {{.Entity | ToPascalCase}}Repository struct {
+	db *sql.DB
+}
+
+// New{{.Entity | ToPascalCase}}Repository wires a {{.Entity | ToLower}} repository to a database handle.
+func New{{.Entity | ToPascalCase}}Repository(db *sql.DB) {{if .RepoIsInterface}}repo.{{.Entity | ToPascalCase}}Repository{{else}}*{{.Entity | ToPascalCase}}Repository{{end}} {
+	return &{{.Entity | ToPascalCase}}Repository{db: db}
+}
+
+func (r *{{.Entity | ToPascalCase}}Repository) Create(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	// TODO: INSERT and scan the generated id.
+	return nil
+}
+
+func (r *{{.Entity | ToPascalCase}}Repository) GetByID(ctx context.Context, id int64) (*ent.{{.Entity | ToPascalCase}}, error) {
+	// TODO: SELECT by id.
+	return nil, nil
+}
+
+func (r *{{.Entity | ToPascalCase}}Repository) List(ctx context.Context) ([]*ent.{{.Entity | ToPascalCase}}, error) {
+	// TODO: SELECT all.
+	return nil, nil
+}
+
+func (r *{{.Entity | ToPascalCase}}Repository) Update(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	// TODO: UPDATE by id.
+	return nil
+}
+
+func (r *{{.Entity | ToPascalCase}}Repository) Delete(ctx context.Context, id int64) error {
+	// TODO: DELETE by id.
+	return nil
+}

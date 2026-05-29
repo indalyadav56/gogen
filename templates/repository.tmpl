@@ -1,13 +1,16 @@
-package repository
+package {{.Package}}
 
 import (
 	"context"
-	"{{.EntityImport}}"
+
+	ent "{{.Imports.Entity}}"
 )
 
-type {{.EntityName | ToPascalCase}}Repository interface {
-	Insert(ctx context.Context, entity *entity.{{.EntityName | ToPascalCase}}) error
-	FindByID(ctx context.Context, id string) (*entity.{{.EntityName | ToPascalCase}}, error)
-	Update(ctx context.Context, entity *entity.{{.EntityName | ToPascalCase}}) error
-	Delete(ctx context.Context, id string) error
+// {{.Entity | ToPascalCase}}Repository is the persistence port for {{.Entity | ToLower}} entities.
+type {{.Entity | ToPascalCase}}Repository interface {
+	Create(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error
+	GetByID(ctx context.Context, id int64) (*ent.{{.Entity | ToPascalCase}}, error)
+	List(ctx context.Context) ([]*ent.{{.Entity | ToPascalCase}}, error)
+	Update(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error
+	Delete(ctx context.Context, id int64) error
 }

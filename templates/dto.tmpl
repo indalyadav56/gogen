@@ -1,0 +1,19 @@
+package {{.Package}}
+
+{{- $P := .Entity | ToPascalCase}}
+
+// Create{{$P}}Request is the payload to create a {{.Entity | ToLower}}.
+type Create{{$P}}Request struct {
+	Name string `json:"name" binding:"required"`
+}
+
+// Update{{$P}}Request is the payload to update a {{.Entity | ToLower}}.
+type Update{{$P}}Request struct {
+	Name string `json:"name"`
+}
+
+// {{$P}}Response is the API representation of a {{.Entity | ToLower}}.
+type {{$P}}Response struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}

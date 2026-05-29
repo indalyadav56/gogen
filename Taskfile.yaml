@@ -1,13 +1,73 @@
 version: "3"
 
+vars:
+  ENTITIES: --entity User --entity Product
+
 tasks:
   run:
+    desc: Generate a sample project (clean architecture, gin)
     cmds:
-      - go run cmd/gogen/main.go --module github.com/indalyadav/example-project --entity user
+      - go run ./cmd/gogen --module github.com/indalyadav/example-project --arch clean --router gin --entity User --entity Product
+
   build:
+    desc: Build the gogen binary
     cmd: go build -o gogen ./cmd/gogen
 
+  # ---- examples: one generated project per architecture, under ./examples ----
+
+  examples:
+    desc: Generate an example project for every architecture into ./examples
+    deps: [build]
+    cmds:
+      - task: example:simple
+      - task: example:layered
+      - task: example:clean
+      - task: example:microservice
+      - task: example:monolith
+      - 'echo "✅ examples generated in ./examples"'
+
+  example:simple:
+    desc: Generate a 'simple' example (examples/simple-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf simple-example && ../gogen --module github.com/indalyadav/simple-example --arch simple --router gin {{.ENTITIES}}
+
+  example:layered:
+    desc: Generate a 'layered' example (examples/layered-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf layered-example && ../gogen --module github.com/indalyadav/layered-example --arch layered --router gin {{.ENTITIES}}
+
+  example:clean:
+    desc: Generate a 'clean' example (examples/clean-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf clean-example && ../gogen --module github.com/indalyadav/clean-example --arch clean --router gin {{.ENTITIES}}
+
+  example:microservice:
+    desc: Generate a 'microservice' example (examples/microservice-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf microservice-example && ../gogen --module github.com/indalyadav/microservice-example --arch microservice --router gin {{.ENTITIES}}
+
+  example:monolith:
+    desc: Generate a 'monolith' example (examples/monolith-example, chi router)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf monolith-example && ../gogen --module github.com/indalyadav/monolith-example --arch monolith --router chi {{.ENTITIES}}
+
+  clean-examples:
+    desc: Remove all generated example projects
+    cmds:
+      - rm -rf examples
+
   test:
+    desc: Run all tests
     cmds:
       - go test -v ./...
 

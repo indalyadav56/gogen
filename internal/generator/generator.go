@@ -3,106 +3,91 @@ package generator
 import (
 	"embed"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/indalyadav56/gogen/internal/blueprint"
 	"github.com/indalyadav56/gogen/internal/cli"
 	"github.com/indalyadav56/gogen/internal/gomod"
-	"github.com/indalyadav56/gogen/internal/scaffold"
 	"github.com/indalyadav56/gogen/internal/template"
-	"github.com/indalyadav56/gogen/utils"
 )
 
-// ProjectGenerator handles the entire project generation process
+// ProjectGenerator drives the end-to-end generation of a project.
 type ProjectGenerator struct {
-	config     *cli.Config
-	renderer   *template.Renderer
-	gomodMgr   *gomod.Manager
+	config      *cli.Config
+	renderer    *template.Renderer
+	gomod       *gomod.Manager
 	projectRoot string
 }
 
-// NewProjectGenerator creates a new project generator
+// NewProjectGenerator creates a generator bound to the embedded template FS.
 func NewProjectGenerator(config *cli.Config, templateFS embed.FS) *ProjectGenerator {
-	projectRoot := config.GetProjectRoot()
-	
+	root := config.GetProjectRoot()
 	return &ProjectGenerator{
 		config:      config,
 		renderer:    template.NewRenderer(templateFS),
-		gomodMgr:    gomod.NewManager(projectRoot),
-		projectRoot: projectRoot,
+		gomod:       gomod.NewManager(root),
+		projectRoot: root,
 	}
 }
 
-// Generate generates the complete project structure
-func (pg *ProjectGenerator) Generate() error {
-	// For monolith architecture, create directories for each entity
-	if pg.config.Monolith && len(pg.config.Entities) > 0 {
-		for _, entityName := range pg.config.Entities {
-			if err := pg.createDirectoriesForEntity(utils.ToCamelCase(entityName)); err != nil {
-				return fmt.Errorf("failed to create directories for entity %s: %w", entityName, err)
-			}
-		}
-	} else {
-		// Create base directory structure
-		if err := pg.createDirectories(); err != nil {
-			return fmt.Errorf("failed to create directories: %w", err)
-		}
-	}
-	
-	// Generate files for entities
-	if err := pg.generateFiles(); err != nil {
-		return fmt.Errorf("failed to generate files: %w", err)
-	}
-	
-	// Initialize Go module
-	if err := pg.gomodMgr.Init(pg.config.ModuleName); err != nil {
+// Generate scaffolds the project files, then initializes and tidies the Go
+// module (the latter requires the `go` toolchain and network access).
+func (g *ProjectGenerator) Generate() error {
+	if err := g.Scaffold(); err != nil {
 		return err
 	}
-	
-	// Run go mod tidy
-	if err := pg.gomodMgr.Tidy(); err != nil {
+	if err := g.gomod.Init(g.config.ModuleName); err != nil {
 		return err
 	}
-	
+	return g.gomod.Tidy()
+}
+
+// Scaffold resolves the selected architecture's blueprint and writes every
+// file. It performs no toolchain or network operations.
+func (g *ProjectGenerator) Scaffold() error {
+	bp, ok := blueprint.Get(g.config.Arch)
+	if !ok {
+		return fmt.Errorf("unknown architecture %q", g.config.Arch)
+	}
+
+	repoIsInterface := g.config.Arch != "simple" && g.config.Arch != "layered"
+	embedRoutes := g.config.Arch == "simple" || g.config.Arch == "layered"
+
+	for _, spec := range bp.Build(g.config) {
+		data := template.Data{
+			Module:          g.config.ModuleName,
+			Project:         g.projectRoot,
+			Arch:            g.config.Arch,
+			Router:          g.config.Router,
+			DB:              g.config.DB,
+			Package:         spec.Package,
+			Entity:          spec.Entity,
+			Entities:        g.config.Entities,
+			Imports:         spec.Imports,
+			RepoIsInterface: repoIsInterface,
+			EmbedRoutes:     embedRoutes,
+		}
+		if err := g.writeFile(spec, data); err != nil {
+			return fmt.Errorf("generating %s: %w", spec.Path, err)
+		}
+	}
 	return nil
 }
 
-// createDirectories creates the project directory structure
-func (pg *ProjectGenerator) createDirectories() error {
-	dirStructure := &scaffold.DirectoryStructure{
-		ProjectRoot: pg.projectRoot,
-		EntityName:  "",
-		IsMonolith:  pg.config.Monolith,
+// writeFile renders a spec's template, or writes a bare stub when no template
+// is set (empty file when Package is also empty).
+func (g *ProjectGenerator) writeFile(spec blueprint.FileSpec, data template.Data) error {
+	fullPath := filepath.Join(g.projectRoot, spec.Path)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+		return err
 	}
-	
-	return dirStructure.CreateDirectories()
-}
 
-// createDirectoriesForEntity creates directories for a specific entity in monolith architecture
-func (pg *ProjectGenerator) createDirectoriesForEntity(entityName string) error {
-	dirStructure := &scaffold.DirectoryStructure{
-		ProjectRoot: pg.projectRoot,
-		EntityName:  entityName,
-		IsMonolith:  pg.config.Monolith,
+	if spec.Template != "" {
+		return g.renderer.RenderToFile("templates/"+spec.Template, fullPath, data)
 	}
-	
-	return dirStructure.CreateDirectories()
-}
-
-// generateFiles generates all project files
-func (pg *ProjectGenerator) generateFiles() error {
-	fileGenerator := scaffold.NewFileGenerator(pg.renderer, pg.projectRoot, pg.config.ModuleName, pg.config.Monolith, pg.config.UseGin, pg.config.UseAuth, pg.config.Entities)
-	
-	if len(pg.config.Entities) > 0 {
-		for _, entityName := range pg.config.Entities {
-			if err := fileGenerator.GenerateFiles(utils.ToCamelCase(entityName)); err != nil {
-				return err
-			}
-		}
-	} else {
-		// Generate files without specific entity
-		if err := fileGenerator.GenerateFiles(""); err != nil {
-			return err
-		}
+	if spec.Package == "" {
+		return os.WriteFile(fullPath, nil, 0o644)
 	}
-	
-	return nil
+	return os.WriteFile(fullPath, []byte("package "+spec.Package+"\n"), 0o644)
 }
