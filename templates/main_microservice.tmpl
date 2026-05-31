@@ -3,88 +3,52 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-{{- if eq .Router "gin"}}
-
-	"github.com/gin-gonic/gin"
-{{- else}}
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-{{- end}}
+	"go.uber.org/zap"
 
 	"{{.Module}}/config"
-	"{{.Module}}/internal/application"
-	"{{.Module}}/internal/health"
+	"{{.Module}}/internal/di"
+	srvhttp "{{.Module}}/internal/server/http"
 	grpcserver "{{.Module}}/internal/transport/grpc"
-	"{{.Module}}/internal/infrastructure/postgres"
-	"{{.Module}}/internal/transport/http/v1/handlers"
-	"{{.Module}}/internal/transport/http/v1/routes"
-	"{{.Module}}/pkg/db"
+	"{{.Module}}/pkg/logger"
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		panic(err)
 	}
 
-	database, err := db.New(cfg.Database.URL)
+	lg := logger.Init(cfg.Log.Level, cfg.Log.File)
+	defer func() { _ = lg.Sync() }()
+
+	container, err := di.New(cfg, lg)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		lg.Fatal("failed to build container", zap.Error(err))
 	}
-	defer database.Close()
+	defer container.Close()
 
-{{- if eq .Router "gin"}}
-
-	r := gin.Default()
-	r.GET("/healthz", health.Handler)
-	v1 := r.Group("/api/v1")
-{{range .Entities}}
-	{{. | ToCamelCase}}Repo := postgres.New{{. | ToPascalCase}}Repository(database)
-	{{. | ToCamelCase}}Svc := application.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
-	{{. | ToCamelCase}}Handler := handlers.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
-	routes.Register{{. | ToPascalCase}}Routes(v1, {{. | ToCamelCase}}Handler)
-{{end}}
-	var httpHandler http.Handler = r
-{{- else}}
-
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Get("/healthz", health.Handler)
-{{range .Entities}}
-	{{. | ToCamelCase}}Repo := postgres.New{{. | ToPascalCase}}Repository(database)
-	{{. | ToCamelCase}}Svc := application.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
-	{{. | ToCamelCase}}Handler := handlers.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
-{{end}}
-	r.Route("/api/v1", func(r chi.Router) {
-{{- range .Entities}}
-		routes.Register{{. | ToPascalCase}}Routes(r, {{. | ToCamelCase}}Handler)
-{{- end}}
-	})
-	var httpHandler http.Handler = r
-{{- end}}
-
-	// Start the gRPC server alongside HTTP.
+	// gRPC server alongside HTTP.
 	grpcSrv := grpcserver.New(":9090")
 	go func() {
 		if err := grpcSrv.Start(); err != nil {
-			log.Printf("grpc: %v", err)
+			lg.Error("grpc server error", zap.Error(err))
 		}
 	}()
 
-	srv := &http.Server{Addr: ":" + cfg.Server.Port, Handler: httpHandler}
+	srv := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: srvhttp.NewRouter(container),
+	}
 	go func() {
-		log.Printf("listening on :%s", cfg.Server.Port)
+		lg.Info("http server starting", zap.String("port", cfg.Server.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("http: %v", err)
+			lg.Fatal("http server failed", zap.Error(err))
 		}
 	}()
 
@@ -92,12 +56,12 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down...")
+	lg.Info("shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	grpcSrv.Stop()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("shutdown: %v", err)
+		lg.Error("graceful shutdown failed", zap.Error(err))
 	}
 }

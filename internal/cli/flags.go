@@ -26,6 +26,7 @@ var (
 	Architectures = []string{"simple", "layered", "clean", "microservice", "monolith"}
 	Routers       = []string{"gin", "chi"}
 	Databases     = []string{"postgres"}
+	Frontends     = []string{"none", "html", "htmx", "react"}
 )
 
 // Config holds all CLI configuration for a generation run.
@@ -35,6 +36,8 @@ type Config struct {
 	Entities   []string
 	Router     string
 	DB         string
+	Auth       bool
+	Frontend   string
 }
 
 // ParseFlags parses os.Args and returns a validated Config.
@@ -55,6 +58,8 @@ func parseArgs(args []string) (*Config, error) {
 	arch := fs.String("arch", "clean", "architecture: "+strings.Join(Architectures, "|"))
 	router := fs.String("router", "gin", "http router: "+strings.Join(Routers, "|"))
 	db := fs.String("db", "postgres", "database: "+strings.Join(Databases, "|"))
+	auth := fs.Bool("auth", false, "include JWT auth + RBAC module (not for --arch simple)")
+	frontend := fs.String("frontend", "none", "frontend layer: "+strings.Join(Frontends, "|"))
 
 	var entities stringSlice
 	fs.Var(&entities, "entity", "entity name; repeatable (e.g. --entity User --entity Product)")
@@ -73,12 +78,15 @@ func parseArgs(args []string) (*Config, error) {
 		Entities:   entities,
 		Router:     strings.ToLower(*router),
 		DB:         strings.ToLower(*db),
+		Auth:       *auth,
+		Frontend:   strings.ToLower(*frontend),
 	}
 
-	return cfg, cfg.validate()
+	return cfg, cfg.Validate()
 }
 
-func (c *Config) validate() error {
+// Validate checks the configuration against the allowed values.
+func (c *Config) Validate() error {
 	if c.ModuleName == "" {
 		return fmt.Errorf("--module is required")
 	}
@@ -90,6 +98,15 @@ func (c *Config) validate() error {
 	}
 	if !contains(Databases, c.DB) {
 		return fmt.Errorf("invalid --db %q (allowed: %s)", c.DB, strings.Join(Databases, ", "))
+	}
+	if c.Auth && c.Arch == "simple" {
+		return fmt.Errorf("--auth is not supported for --arch simple")
+	}
+	if c.Frontend == "" {
+		c.Frontend = "none"
+	}
+	if !contains(Frontends, c.Frontend) {
+		return fmt.Errorf("invalid --frontend %q (allowed: %s)", c.Frontend, strings.Join(Frontends, ", "))
 	}
 	return nil
 }

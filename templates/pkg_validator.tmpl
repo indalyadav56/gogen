@@ -1,0 +1,11 @@
+// Package validator wraps go-playground/validator with a shared instance.
+package validator
+
+import "github.com/go-playground/validator/v10"
+
+var v = validator.New(validator.WithRequiredStructEnabled())
+
+// Validate validates a struct using its `validate:"..."` tags.
+func Validate(s any) error {
+	return v.Struct(s)
+}

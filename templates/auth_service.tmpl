@@ -1,0 +1,86 @@
+package {{.Package}}
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	ent "{{.Imports.Entity}}"
+	repo "{{.Imports.Repository}}"
+
+	"{{.Module}}/pkg/auth"
+)
+
+// ErrInvalidCredentials is returned when login fails.
+var ErrInvalidCredentials = errors.New("invalid credentials")
+
+// AuthService implements registration, login and token refresh.
+type AuthService struct {
+	users      repo.UserRepository
+	roles      repo.RoleRepository
+	secret     string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
+}
+
+// NewAuthService builds the auth use cases.
+func NewAuthService(users repo.UserRepository, roles repo.RoleRepository, secret string, accessTTL, refreshTTL time.Duration) *AuthService {
+	return &AuthService{users: users, roles: roles, secret: secret, accessTTL: accessTTL, refreshTTL: refreshTTL}
+}
+
+// Register creates a new user with the default "user" role.
+func (s *AuthService) Register(ctx context.Context, email, password string) (*ent.User, error) {
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	u := &ent.User{Email: email, PasswordHash: hash, Role: "user"}
+	if err := s.users.Create(ctx, u); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// Login verifies credentials and returns an access + refresh token pair.
+func (s *AuthService) Login(ctx context.Context, email, password string) (access, refresh string, err error) {
+	u, err := s.users.GetByEmail(ctx, email)
+	if err != nil {
+		return "", "", err
+	}
+	if u == nil || !auth.CheckPassword(u.PasswordHash, password) {
+		return "", "", ErrInvalidCredentials
+	}
+	perms := s.permissionsFor(ctx, u.Role)
+	if access, err = auth.GenerateAccess(s.secret, s.accessTTL, u.ID, u.Email, u.Role, perms); err != nil {
+		return "", "", err
+	}
+	if refresh, err = auth.GenerateRefresh(s.secret, s.refreshTTL, u.ID); err != nil {
+		return "", "", err
+	}
+	return access, refresh, nil
+}
+
+// Refresh validates a refresh token and issues a new access token.
+func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string, error) {
+	claims, err := auth.Parse(s.secret, refreshToken)
+	if err != nil {
+		return "", err
+	}
+	u, err := s.users.GetByID(ctx, claims.UserID)
+	if err != nil {
+		return "", err
+	}
+	if u == nil {
+		return "", ErrInvalidCredentials
+	}
+	perms := s.permissionsFor(ctx, u.Role)
+	return auth.GenerateAccess(s.secret, s.accessTTL, u.ID, u.Email, u.Role, perms)
+}
+
+func (s *AuthService) permissionsFor(ctx context.Context, roleName string) []string {
+	role, err := s.roles.GetByName(ctx, roleName)
+	if err != nil || role == nil {
+		return nil
+	}
+	return role.Permissions
+}

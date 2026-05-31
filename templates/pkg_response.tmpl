@@ -1,0 +1,30 @@
+// Package response writes standardized JSON API envelopes.
+package response
+
+import (
+	"encoding/json"
+	"net/http"
+)
+
+// Envelope is the uniform shape of every API response.
+type Envelope struct {
+	Success bool   `json:"success"`
+	Data    any    `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// JSON writes data with the given status (success when status < 400).
+func JSON(w http.ResponseWriter, status int, data any) {
+	write(w, status, Envelope{Success: status < http.StatusBadRequest, Data: data})
+}
+
+// Error writes an error message with the given status.
+func Error(w http.ResponseWriter, status int, msg string) {
+	write(w, status, Envelope{Success: false, Error: msg})
+}
+
+func write(w http.ResponseWriter, status int, e Envelope) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(e)
+}

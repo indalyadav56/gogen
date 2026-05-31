@@ -1,0 +1,19 @@
+# Base configuration for {{.Project}}, shared across environments.
+# Override per environment in configs/<APP_ENV>.yaml, then via env vars
+# (SERVER_PORT, DATABASE_URL, LOG_LEVEL, ...).
+server:
+  port: "8080"
+
+database:
+  url: "postgres://postgres:postgres@localhost:5432/{{.Project}}?sslmode=disable"
+
+log:
+  level: "info"
+  file: "logs/app.log"
+{{- if .Auth}}
+
+auth:
+  secret: "change-me-in-production"   # override via AUTH_SECRET in production
+  access_ttl: "15m"
+  refresh_ttl: "168h"
+{{- end}}

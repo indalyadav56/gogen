@@ -1,0 +1,54 @@
+package middleware
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+{{- if eq .Router "gin"}}
+
+	"github.com/gin-gonic/gin"
+{{- else}}
+
+	"context"
+	"net/http"
+{{- end}}
+)
+
+// RequestIDHeader is the header carrying the per-request correlation id.
+const RequestIDHeader = "X-Request-ID"
+{{if eq .Router "gin"}}
+// RequestID ensures every request has an id, echoing it back and storing it.
+func RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.GetHeader(RequestIDHeader)
+		if id == "" {
+			id = newID()
+		}
+		c.Header(RequestIDHeader, id)
+		c.Set("request_id", id)
+		c.Next()
+	}
+}
+{{- else}}
+type ctxKey string
+
+const requestIDKey ctxKey = "request_id"
+
+// RequestID ensures every request has an id, echoing it back and storing it.
+func RequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.Header.Get(RequestIDHeader)
+		if id == "" {
+			id = newID()
+		}
+		w.Header().Set(RequestIDHeader, id)
+		ctx := context.WithValue(r.Context(), requestIDKey, id)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+{{- end}}
+
+func newID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}

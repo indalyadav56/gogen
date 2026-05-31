@@ -1,12 +1,24 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+{{- if .Rich}}
+	"os"
+{{- end}}
+{{- if .Auth}}
+	"time"
+{{- end}}
 
-// Config holds runtime configuration. Values come from configs/config.yaml,
-// overridden by environment variables (SERVER_PORT, DATABASE_URL).
+	"github.com/spf13/viper"
+)
+
+// Config holds runtime configuration loaded from YAML + environment overrides.
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Log      LogConfig
+{{- if .Auth}}
+	Auth     AuthConfig
+{{- end}}
 }
 
 type ServerConfig struct {
@@ -17,26 +29,75 @@ type DatabaseConfig struct {
 	URL string
 }
 
-// Load reads configs/config.yaml (optional) and applies env overrides.
+type LogConfig struct {
+	Level string
+	File  string
+}
+{{- if .Auth}}
+
+type AuthConfig struct {
+	Secret     string        `mapstructure:"secret"`
+	AccessTTL  time.Duration `mapstructure:"access_ttl"`
+	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
+}
+{{- end}}
+
+// Load reads configuration and applies environment overrides.
 func Load() (*Config, error) {
 	v := viper.New()
-	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath("./configs")
 	v.AddConfigPath(".")
 
 	v.SetDefault("server.port", "8080")
 	v.SetDefault("database.url", "postgres://postgres:postgres@localhost:5432/{{.Project}}?sslmode=disable")
+	v.SetDefault("log.level", "info")
+	v.SetDefault("log.file", "logs/app.log")
+{{- if .Auth}}
+	v.SetDefault("auth.secret", "change-me-in-production")
+	v.SetDefault("auth.access_ttl", "15m")
+	v.SetDefault("auth.refresh_ttl", "168h")
+{{- end}}
 
 	_ = v.BindEnv("server.port", "SERVER_PORT")
 	_ = v.BindEnv("database.url", "DATABASE_URL")
+	_ = v.BindEnv("log.level", "LOG_LEVEL")
+	_ = v.BindEnv("log.file", "LOG_FILE")
+{{- if .Auth}}
+	_ = v.BindEnv("auth.secret", "AUTH_SECRET")
+	_ = v.BindEnv("auth.access_ttl", "AUTH_ACCESS_TTL")
+	_ = v.BindEnv("auth.refresh_ttl", "AUTH_REFRESH_TTL")
+{{- end}}
 
+{{- if .Rich}}
+
+	// Layered config: read base.yaml, then merge the environment file
+	// (APP_ENV: local|prod|..., default "local").
+	v.SetConfigName("base")
 	if err := v.ReadInConfig(); err != nil {
-		// The config file is optional; defaults and env still apply.
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, err
 		}
 	}
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "local"
+	}
+	v.SetConfigName(env)
+	if err := v.MergeInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
+	}
+{{- else}}
+
+	v.SetConfigName("config")
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
+	}
+{{- end}}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {

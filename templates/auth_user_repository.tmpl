@@ -1,0 +1,14 @@
+package {{.Package}}
+
+import (
+	"context"
+
+	ent "{{.Imports.Entity}}"
+)
+
+// UserRepository is the persistence port for user accounts.
+type UserRepository interface {
+	Create(ctx context.Context, u *ent.User) error
+	GetByEmail(ctx context.Context, email string) (*ent.User, error)
+	GetByID(ctx context.Context, id int64) (*ent.User, error)
+}

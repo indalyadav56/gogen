@@ -22,5 +22,6 @@ func buildSimple(cfg *cli.Config) []FileSpec {
 			Entity:   e,
 		})
 	}
+	files = append(files, frontendFiles(cfg.Frontend)...)
 	return files
 }

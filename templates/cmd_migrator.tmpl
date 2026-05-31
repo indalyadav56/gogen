@@ -1,0 +1,31 @@
+package main
+
+import (
+	"go.uber.org/zap"
+
+	"{{.Module}}/config"
+	"{{.Module}}/internal/db"
+	pkgdb "{{.Module}}/pkg/db"
+	"{{.Module}}/pkg/logger"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
+	lg := logger.Init(cfg.Log.Level, cfg.Log.File)
+	defer func() { _ = lg.Sync() }()
+
+	database, err := pkgdb.New(cfg.Database.URL)
+	if err != nil {
+		lg.Fatal("database connection failed", zap.Error(err))
+	}
+	defer database.Close()
+
+	n, err := db.RunMigrations(database, "migrations/postgres")
+	if err != nil {
+		lg.Fatal("migrations failed", zap.Error(err))
+	}
+	lg.Info("migrations applied", zap.Int("files", n))
+}

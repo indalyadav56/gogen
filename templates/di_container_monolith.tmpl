@@ -1,0 +1,66 @@
+// Package di is the composition root: it wires every bounded context together.
+package di
+
+import (
+	"database/sql"
+
+	"go.uber.org/zap"
+
+	"{{.Module}}/config"
+	"{{.Module}}/pkg/db"
+{{- if .Auth}}
+	authapp "{{.Module}}/internal/auth/application"
+	authpg "{{.Module}}/internal/auth/infrastructure/postgres"
+	authhdl "{{.Module}}/internal/auth/transport/http/v1/handlers"
+	authmw "{{.Module}}/internal/auth/transport/http/middleware"
+{{- end}}
+{{range .Entities}}	{{. | ToLower}}app "{{$.Module}}/internal/{{. | ToLower}}/application"
+	{{. | ToLower}}pg "{{$.Module}}/internal/{{. | ToLower}}/infrastructure/postgres"
+	{{. | ToLower}}hdl "{{$.Module}}/internal/{{. | ToLower}}/transport/http/v1/handlers"
+{{end}})
+
+// Container holds the application's wired dependencies.
+type Container struct {
+	Config *config.Config
+	Logger *zap.Logger
+	DB     *sql.DB
+{{range .Entities}}	{{. | ToPascalCase}}Handler *{{. | ToLower}}hdl.{{. | ToPascalCase}}Handler
+{{end}}
+{{- if .Auth}}
+	AuthHandler    *authhdl.AuthHandler
+	AuthMiddleware *authmw.Middleware
+{{- end}}
+}
+
+// New opens dependencies and wires every bounded context.
+func New(cfg *config.Config, lg *zap.Logger) (*Container, error) {
+	database, err := db.New(cfg.Database.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Container{Config: cfg, Logger: lg, DB: database}
+{{range .Entities}}
+	{{. | ToCamelCase}}Repo := {{. | ToLower}}pg.New{{. | ToPascalCase}}Repository(database)
+	{{. | ToCamelCase}}Svc := {{. | ToLower}}app.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
+	c.{{. | ToPascalCase}}Handler = {{. | ToLower}}hdl.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
+{{end}}
+{{- if .Auth}}
+	authSvc := authapp.NewAuthService(
+		authpg.NewUserRepository(database),
+		authpg.NewRoleRepository(database),
+		cfg.Auth.Secret, cfg.Auth.AccessTTL, cfg.Auth.RefreshTTL,
+	)
+	c.AuthHandler = authhdl.NewAuthHandler(authSvc)
+	c.AuthMiddleware = authmw.New(cfg.Auth.Secret)
+{{- end}}
+	return c, nil
+}
+
+// Close releases the container's resources.
+func (c *Container) Close() error {
+	if c.DB != nil {
+		return c.DB.Close()
+	}
+	return nil
+}

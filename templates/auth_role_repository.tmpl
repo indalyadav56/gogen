@@ -1,0 +1,12 @@
+package {{.Package}}
+
+import (
+	"context"
+
+	ent "{{.Imports.Entity}}"
+)
+
+// RoleRepository resolves a role (and its permissions) by name.
+type RoleRepository interface {
+	GetByName(ctx context.Context, name string) (*ent.Role, error)
+}

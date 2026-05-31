@@ -1,0 +1,9 @@
+package {{.Package}}
+
+import "errors"
+
+// Domain errors for the {{.Entity | ToLower}} aggregate.
+var (
+	Err{{.Entity | ToPascalCase}}NotFound      = errors.New("{{.Entity | ToLower}} not found")
+	Err{{.Entity | ToPascalCase}}AlreadyExists = errors.New("{{.Entity | ToLower}} already exists")
+)

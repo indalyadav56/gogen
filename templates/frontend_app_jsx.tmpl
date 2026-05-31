@@ -1,0 +1,22 @@
+import { useState } from 'react'
+import { ping } from './api.js'
+
+const styles = {
+  main: { fontFamily: 'system-ui, sans-serif', maxWidth: 640, margin: '64px auto', textAlign: 'center', color: '#e6e9ef' },
+  button: { marginTop: 24, padding: '10px 18px', border: 'none', borderRadius: 8, background: '#27c93f', color: '#08210d', fontWeight: 600, cursor: 'pointer' },
+}
+
+export default function App() {
+  const [status, setStatus] = useState('')
+
+  return (
+    <main style={styles.main}>
+      <h1>🚀 {{.Project}}</h1>
+      <p>React + Vite frontend, served by your Go backend.</p>
+      <button style={styles.button} onClick={async () => setStatus(await ping())}>
+        Ping the API
+      </button>
+      <pre>{status}</pre>
+    </main>
+  )
+}

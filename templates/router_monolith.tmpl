@@ -1,0 +1,69 @@
+// Package http builds the application's HTTP router from the DI container.
+package http
+
+{{- if eq .Router "gin"}}
+import (
+	"github.com/gin-gonic/gin"
+
+	"{{.Module}}/internal/di"
+	mw "{{.Module}}/internal/server/http/middleware"
+{{- if .Auth}}
+	authrt "{{.Module}}/internal/auth/transport/http/v1/routes"
+{{- end}}
+{{- if ne .Frontend "none"}}
+	frontend "{{.Module}}/web"
+{{- end}}
+{{range .Entities}}	{{. | ToLower}}rt "{{$.Module}}/internal/{{. | ToLower}}/transport/http/v1/routes"
+{{end}})
+
+// NewRouter assembles middleware and routes around the container's handlers.
+func NewRouter(c *di.Container) *gin.Engine {
+	r := gin.New()
+	r.Use(mw.Recovery(c.Logger), mw.RequestID(), mw.Logger(c.Logger))
+
+	v1 := r.Group("/api/v1")
+{{- range .Entities}}
+	{{. | ToLower}}rt.Register{{. | ToPascalCase}}Routes(v1, c.{{. | ToPascalCase}}Handler)
+{{- end}}
+{{- if .Auth}}
+	authrt.RegisterAuthRoutes(v1, c.AuthHandler, c.AuthMiddleware)
+{{- end}}
+{{- if ne .Frontend "none"}}
+	r.NoRoute(gin.WrapH(frontend.Handler()))
+{{- end}}
+	return r
+}
+{{- else}}
+import (
+	"github.com/go-chi/chi/v5"
+
+	"{{.Module}}/internal/di"
+	mw "{{.Module}}/internal/server/http/middleware"
+{{- if .Auth}}
+	authrt "{{.Module}}/internal/auth/transport/http/v1/routes"
+{{- end}}
+{{- if ne .Frontend "none"}}
+	frontend "{{.Module}}/web"
+{{- end}}
+{{range .Entities}}	{{. | ToLower}}rt "{{$.Module}}/internal/{{. | ToLower}}/transport/http/v1/routes"
+{{end}})
+
+// NewRouter assembles middleware and routes around the container's handlers.
+func NewRouter(c *di.Container) chi.Router {
+	r := chi.NewRouter()
+	r.Use(mw.RequestID, mw.Logger(c.Logger), mw.Recovery(c.Logger))
+
+	r.Route("/api/v1", func(r chi.Router) {
+{{- range .Entities}}
+		{{. | ToLower}}rt.Register{{. | ToPascalCase}}Routes(r, c.{{. | ToPascalCase}}Handler)
+{{- end}}
+{{- if .Auth}}
+		authrt.RegisterAuthRoutes(r, c.AuthHandler, c.AuthMiddleware)
+{{- end}}
+	})
+{{- if ne .Frontend "none"}}
+	r.Handle("/*", frontend.Handler())
+{{- end}}
+	return r
+}
+{{- end}}

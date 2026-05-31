@@ -1,0 +1,4 @@
+# Production overrides (APP_ENV=prod).
+# Keep secrets out of this file — provide DATABASE_URL{{if .Auth}}, AUTH_SECRET{{end}} via env vars.
+log:
+  level: "warn"

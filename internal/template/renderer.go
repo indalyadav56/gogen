@@ -31,6 +31,7 @@ type Imports struct {
 	Handler    string // http handler import path
 	Routes     string // http routes import path
 	DTO        string // dto import path
+	Middleware string // http middleware import path (auth)
 }
 
 // Data is the single, architecture-agnostic payload passed to every template.
@@ -52,6 +53,14 @@ type Data struct {
 	// EmbedRoutes is true when route registration lives on the handler
 	// (simple/layered) instead of a dedicated routes package.
 	EmbedRoutes bool
+	// Auth is true when the JWT + RBAC auth module is included.
+	Auth bool
+	// Frontend is the frontend layer: none|html|htmx|react.
+	Frontend string
+	// Rich is true for the production-grade DDD architectures (clean,
+	// microservice, monolith) that get DI containers, a router package,
+	// pkg/response + pkg/validator, domain errors and extra binaries.
+	Rich bool
 }
 
 // FuncMap returns the template helper functions shared by all templates.

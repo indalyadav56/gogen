@@ -1,0 +1,33 @@
+package web
+
+import (
+	"embed"
+	"io/fs"
+	"net/http"
+	"strings"
+)
+
+// dist holds the built Vite app. Run `npm install && npm run build` in web/ to
+// populate it (a placeholder index.html ships so the binary always compiles).
+//
+//go:embed all:dist
+var dist embed.FS
+
+// Handler serves the built React app from web/dist with SPA fallback: unknown
+// paths return index.html so client-side routing works.
+func Handler() http.Handler {
+	sub, err := fs.Sub(dist, "dist")
+	if err != nil {
+		panic(err)
+	}
+	fileServer := http.FileServer(http.FS(sub))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path != "" {
+			if _, err := fs.Stat(sub, path); err != nil {
+				r.URL.Path = "/"
+			}
+		}
+		fileServer.ServeHTTP(w, r)
+	})
+}

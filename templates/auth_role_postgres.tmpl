@@ -1,0 +1,24 @@
+package {{.Package}}
+
+import (
+	"context"
+	"database/sql"
+
+	ent "{{.Imports.Entity}}"
+	repo "{{.Imports.Repository}}"
+)
+
+// RoleRepository is the Postgres-backed role store.
+type RoleRepository struct {
+	db *sql.DB
+}
+
+// NewRoleRepository wires a role repository to a database handle.
+func NewRoleRepository(db *sql.DB) repo.RoleRepository {
+	return &RoleRepository{db: db}
+}
+
+func (r *RoleRepository) GetByName(ctx context.Context, name string) (*ent.Role, error) {
+	// TODO: join roles + role_permissions + permissions to load the role's perms.
+	return nil, nil
+}

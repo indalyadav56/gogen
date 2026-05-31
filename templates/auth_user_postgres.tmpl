@@ -1,0 +1,34 @@
+package {{.Package}}
+
+import (
+	"context"
+	"database/sql"
+
+	ent "{{.Imports.Entity}}"
+	repo "{{.Imports.Repository}}"
+)
+
+// UserRepository is the Postgres-backed user store.
+type UserRepository struct {
+	db *sql.DB
+}
+
+// NewUserRepository wires a user repository to a database handle.
+func NewUserRepository(db *sql.DB) repo.UserRepository {
+	return &UserRepository{db: db}
+}
+
+func (r *UserRepository) Create(ctx context.Context, u *ent.User) error {
+	// TODO: INSERT INTO users (email, password_hash, role) ... RETURNING id.
+	return nil
+}
+
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*ent.User, error) {
+	// TODO: SELECT ... FROM users WHERE email = $1. Return (nil, nil) when absent.
+	return nil, nil
+}
+
+func (r *UserRepository) GetByID(ctx context.Context, id int64) (*ent.User, error) {
+	// TODO: SELECT ... FROM users WHERE id = $1.
+	return nil, nil
+}

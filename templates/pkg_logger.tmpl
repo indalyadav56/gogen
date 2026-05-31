@@ -1,11 +1,55 @@
 package logger
 
 import (
-	"log/slog"
 	"os"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// New returns a JSON structured logger writing to stdout.
-func New() *slog.Logger {
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+// Init builds a zap logger that writes coloured, human-readable logs to stdout
+// and JSON logs to a size-rotated file (via lumberjack), installs it as zap's
+// global logger, and returns it. Defer the returned logger's Sync on shutdown.
+func Init(level, file string) *zap.Logger {
+	if file == "" {
+		file = "logs/app.log"
+	}
+	lvl, err := zapcore.ParseLevel(level)
+	if err != nil {
+		lvl = zapcore.InfoLevel
+	}
+
+	// Console core: coloured, human-friendly, to stdout.
+	consoleCfg := zap.NewDevelopmentEncoderConfig()
+	consoleCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleCfg)
+
+	// File core: structured JSON, rotated by lumberjack.
+	fileCfg := zap.NewProductionEncoderConfig()
+	fileCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	fileEncoder := zapcore.NewJSONEncoder(fileCfg)
+
+	rotator := &lumberjack.Logger{
+		Filename:   file,
+		MaxSize:    100, // megabytes before rotation
+		MaxBackups: 7,   // keep up to 7 old files
+		MaxAge:     28,  // days
+		Compress:   true,
+	}
+
+	core := zapcore.NewTee(
+		zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), lvl),
+		zapcore.NewCore(fileEncoder, zapcore.AddSync(rotator), lvl),
+	)
+
+	l := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	zap.ReplaceGlobals(l)
+	return l
 }
+
+// L returns the global structured logger.
+func L() *zap.Logger { return zap.L() }
+
+// S returns the global sugared logger (Infow/Errorw/...).
+func S() *zap.SugaredLogger { return zap.S() }

@@ -9,6 +9,11 @@ tasks:
     cmds:
       - go run ./cmd/gogen --module github.com/indalyadav/example-project --arch clean --router gin --entity User --entity Product
 
+  serve:
+    desc: Start the web UI (browser configurator)
+    cmds:
+      - go run ./cmd/gogen serve
+
   build:
     desc: Build the gogen binary
     cmd: go build -o gogen ./cmd/gogen

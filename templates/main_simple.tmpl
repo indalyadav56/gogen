@@ -5,6 +5,10 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+{{- if ne .Frontend "none"}}
+
+	frontend "{{.Module}}/web"
+{{- end}}
 )
 
 func main() {
@@ -17,6 +21,9 @@ func main() {
 	v1 := r.Group("/api/v1")
 {{- range .Entities}}
 	register{{. | ToPascalCase}}Routes(v1)
+{{- end}}
+{{- if ne .Frontend "none"}}
+	r.NoRoute(gin.WrapH(frontend.Handler()))
 {{- end}}
 
 	log.Printf("listening on :%s", cfg.Port)
@@ -32,6 +39,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+{{- if ne .Frontend "none"}}
+
+	frontend "{{.Module}}/web"
+{{- end}}
 )
 
 func main() {
@@ -49,6 +60,9 @@ func main() {
 		register{{. | ToPascalCase}}Routes(r)
 {{- end}}
 	})
+{{- if ne .Frontend "none"}}
+	r.Handle("/*", frontend.Handler())
+{{- end}}
 
 	log.Printf("listening on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, r))

@@ -8,9 +8,11 @@ import "github.com/indalyadav56/gogen/internal/cli"
 // registration lives on the handler (EmbedRoutes).
 func buildLayered(cfg *cli.Config) []FileSpec {
 	imp := layeredImports(cfg.ModuleName)
-	files := append(commonFiles(), FileSpec{
-		Path: "cmd/server/main.go", Template: "main_layered.tmpl", Package: "main", Imports: imp,
-	})
+	files := append(commonFiles(),
+		FileSpec{Path: "configs/config.yaml", Template: "config_yaml.tmpl"},
+		FileSpec{Path: "migrations/.gitkeep", Template: ""},
+		FileSpec{Path: "cmd/server/main.go", Template: "main_layered.tmpl", Package: "main", Imports: imp},
+	)
 
 	for _, e := range cfg.Entities {
 		el := lower(e)
@@ -21,5 +23,9 @@ func buildLayered(cfg *cli.Config) []FileSpec {
 			FileSpec{Path: "internal/handler/" + el + "_handler.go", Template: "handler.tmpl", Package: "handler", Entity: e, Imports: imp},
 		)
 	}
+	if cfg.Auth {
+		files = append(files, authFiles(cfg.ModuleName, "migrations")...)
+	}
+	files = append(files, frontendFiles(cfg.Frontend)...)
 	return files
 }

@@ -1,0 +1,8 @@
+-- Initial schema for {{.Project}}.
+-- Migrations are applied in lexical filename order; keep statements idempotent.
+
+CREATE TABLE IF NOT EXISTS examples (
+    id         BIGSERIAL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/indalyadav56/gogen/internal/logx"
 )
 
 // Manager handles Go module operations
@@ -20,6 +22,7 @@ func NewManager(projectRoot string) *Manager {
 
 // Init initializes a new Go module
 func (m *Manager) Init(moduleName string) error {
+	logx.S().Debugw("go mod init", "module", moduleName, "dir", m.projectRoot)
 	cmd := exec.Command("go", "mod", "init", moduleName)
 	cmd.Dir = m.projectRoot
 	cmd.Stdout = os.Stdout
@@ -34,6 +37,7 @@ func (m *Manager) Init(moduleName string) error {
 
 // Tidy runs go mod tidy to clean up dependencies
 func (m *Manager) Tidy() error {
+	logx.S().Debugw("go mod tidy", "dir", m.projectRoot)
 	cmd := exec.Command("go", "mod", "tidy")
 	cmd.Dir = m.projectRoot
 	cmd.Stdout = os.Stdout

@@ -1,0 +1,12 @@
+package {{.Package}}
+
+// Create{{.Entity | ToPascalCase}}Input is the input to the create-{{.Entity | ToLower}} use case.
+type Create{{.Entity | ToPascalCase}}Input struct {
+	Name string
+}
+
+// Update{{.Entity | ToPascalCase}}Input is the input to the update-{{.Entity | ToLower}} use case.
+type Update{{.Entity | ToPascalCase}}Input struct {
+	ID   int64
+	Name string
+}

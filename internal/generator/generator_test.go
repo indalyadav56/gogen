@@ -53,6 +53,71 @@ func TestScaffoldArchitectures(t *testing.T) {
 	}
 }
 
+// TestScaffoldAuth generates each structured architecture with --auth and
+// asserts the auth module's Go files all parse.
+func TestScaffoldAuth(t *testing.T) {
+	for _, arch := range []string{"layered", "clean", "microservice", "monolith"} {
+		for _, router := range cli.Routers {
+			t.Run(arch+"_"+router, func(t *testing.T) {
+				root := t.TempDir()
+				cfg := &cli.Config{
+					ModuleName: "github.com/test/demo",
+					Arch:       arch, Router: router, DB: "postgres", Auth: true,
+					Entities: []string{"User"},
+				}
+				g := NewProjectGenerator(cfg, goembed.TemplateFS)
+				g.projectRoot = root
+				if err := g.Scaffold(); err != nil {
+					t.Fatalf("Scaffold() error = %v", err)
+				}
+				parseGoFiles(t, root)
+
+				migration := "migrations/postgres/000002_create_auth_tables.up.sql"
+				if arch == "layered" {
+					migration = "migrations/000002_create_auth_tables.up.sql"
+				}
+				for _, marker := range []string{
+					"pkg/auth/jwt.go",
+					"internal/auth/application/auth_service.go",
+					"internal/auth/transport/http/middleware/auth_middleware.go",
+					migration,
+				} {
+					if _, err := os.Stat(filepath.Join(root, marker)); err != nil {
+						t.Errorf("expected auth file %s: %v", marker, err)
+					}
+				}
+			})
+		}
+	}
+}
+
+// TestScaffoldFrontend generates each frontend variant and asserts the web
+// package's Go files parse and the entry asset exists.
+func TestScaffoldFrontend(t *testing.T) {
+	for _, fe := range []string{"html", "htmx", "react"} {
+		for _, arch := range []string{"simple", "clean"} {
+			t.Run(fe+"_"+arch, func(t *testing.T) {
+				root := t.TempDir()
+				cfg := &cli.Config{
+					ModuleName: "github.com/test/demo",
+					Arch:       arch, Router: "gin", DB: "postgres", Frontend: fe,
+					Entities: []string{"User"},
+				}
+				g := NewProjectGenerator(cfg, goembed.TemplateFS)
+				g.projectRoot = root
+				if err := g.Scaffold(); err != nil {
+					t.Fatalf("Scaffold() error = %v", err)
+				}
+				parseGoFiles(t, root)
+
+				if _, err := os.Stat(filepath.Join(root, "web/web.go")); err != nil {
+					t.Errorf("expected web/web.go: %v", err)
+				}
+			})
+		}
+	}
+}
+
 func parseGoFiles(t *testing.T, root string) {
 	t.Helper()
 	fset := token.NewFileSet()

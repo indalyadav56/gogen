@@ -9,7 +9,7 @@ from a flat prototype to a DDD modular monolith — with a selectable HTTP route
 (`gin`/`chi`) and database (`postgres`).
 
 <p align="center">
-  <img src="docs/assets/demo.svg" alt="gogen generating a monolith project" width="720">
+  <img src="screenshots/demo.svg" alt="gogen generating a monolith project" width="720">
 </p>
 
 ## ✨ What you get
@@ -18,11 +18,21 @@ from a flat prototype to a DDD modular monolith — with a selectable HTTP route
   `microservice`, `monolith`.
 - **Router choice**: `--router gin` (default) or `--router chi`.
 - **Multi-entity**: repeat `--entity` to scaffold several resources at once.
+- **Optional auth**: `--auth` adds a self-contained JWT + RBAC module
+  (register/login/refresh, roles & permissions, auth middleware) to any
+  structured architecture.
+- **Optional frontend**: `--frontend html|htmx|react` makes it fullstack — the
+  Go binary serves the frontend itself (embedded static assets, or an embedded
+  built Vite/React app with SPA fallback).
 - **Compiles out of the box**: every generated project passes `go build ./...`.
-- **Batteries**: Viper config (`configs/config.yaml` + `SERVER_PORT`/`DATABASE_URL`
-  overrides), Dockerfile, Taskfile, `.env.example`, `.gitignore`, `pkg/db`
-  (Postgres) and `pkg/logger` (slog). Microservice adds healthcheck, graceful
-  shutdown, a gRPC server stub, and `docker-compose.yml`.
+- **Production-grade DDD archs**: `clean`/`microservice`/`monolith` get a DI
+  container, a router package with middleware, `pkg/response` + `pkg/validator`,
+  domain errors, layered `configs/`, and `cmd/migrator` + `cmd/seed` binaries.
+- **Batteries**: Viper config (`configs/config.yaml` + env overrides), structured
+  logging via `pkg/logger` (**zap** + **lumberjack** file rotation, wired through
+  main/services/handlers), Dockerfile, Taskfile, `.env.example`, `.gitignore`,
+  and `pkg/db` (Postgres). Microservice adds healthcheck, graceful shutdown, a
+  gRPC server stub, and `docker-compose.yml`.
 
 ## 🏁 Quick start
 
@@ -34,6 +44,21 @@ go build -o gogen ./cmd/gogen
 
 cd shop && go run ./cmd/server   # API served under /api/v1
 ```
+
+## 🖥️ Web UI
+
+Prefer a browser? Start the local configurator:
+
+```bash
+gogen serve            # opens http://127.0.0.1:7720 (auto-picks a free port if taken)
+gogen serve --port 9000
+```
+
+Pick the architecture, router, database and entities, watch the **structure
+preview** update live, then **download the project as a `.zip`** (extract and run
+`go mod tidy`). The server binds to `127.0.0.1` only and uses an uncommon default
+port, falling back to a free OS-assigned port so it never clashes with other
+services on your machine.
 
 ## 🧱 Architectures
 
@@ -54,6 +79,8 @@ cd shop && go run ./cmd/server   # API served under /api/v1
 | `--router` | `gin` | `gin` \| `chi` |
 | `--db` | `postgres` | Database driver |
 | `--entity` | `Item` | Resource name; repeatable (`--entity User --entity Order`) |
+| `--auth` | `false` | Add a JWT + RBAC auth module (`internal/auth`); not for `--arch simple` |
+| `--frontend` | `none` | Frontend layer served by the Go app: `none` \| `html` \| `htmx` \| `react` |
 
 A leading `new` subcommand is accepted too: `gogen new --module ... --arch monolith`.
 
@@ -82,7 +109,10 @@ internal/cli     → flag parsing + validation
 internal/blueprint → one file per architecture (simple, layered, clean, microservice, monolith)
 internal/template  → renderer + shared Data/Imports + helper funcs
 internal/generator → blueprint → render files → go mod init/tidy
-templates/       → ~20 reusable text/templates
+internal/logx    → gogen's own zap logger (level via GOGEN_LOG)
+internal/server  → `gogen serve` server (preview API + zip export)
+web/             → UI assets (index.html), embedded via embed.go
+templates/       → reusable text/templates
 ```
 
 ### Adding an architecture

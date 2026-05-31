@@ -17,7 +17,7 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"--module", "github.com/x/y"},
 			expected: Config{
 				ModuleName: "github.com/x/y", Arch: "clean", Router: "gin", DB: "postgres",
-				Entities: []string{"Item"},
+				Entities: []string{"Item"}, Frontend: "none",
 			},
 		},
 		{
@@ -25,18 +25,18 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"new", "--module", "github.com/x/y", "--arch", "monolith"},
 			expected: Config{
 				ModuleName: "github.com/x/y", Arch: "monolith", Router: "gin", DB: "postgres",
-				Entities: []string{"Item"},
+				Entities: []string{"Item"}, Frontend: "none",
 			},
 		},
 		{
 			name: "all flags",
 			args: []string{
 				"--module", "github.com/c/api", "--arch", "layered", "--router", "chi",
-				"--db", "postgres", "--entity", "User", "--entity", "Order",
+				"--db", "postgres", "--entity", "User", "--entity", "Order", "--frontend", "react",
 			},
 			expected: Config{
 				ModuleName: "github.com/c/api", Arch: "layered", Router: "chi", DB: "postgres",
-				Entities: []string{"User", "Order"},
+				Entities: []string{"User", "Order"}, Frontend: "react",
 			},
 		},
 		{

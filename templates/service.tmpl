@@ -5,6 +5,8 @@ import (
 
 	ent "{{.Imports.Entity}}"
 	repo "{{.Imports.Repository}}"
+
+	"{{.Module}}/pkg/logger"
 )
 
 {{- $repoType := printf "*repo.%sRepository" (.Entity | ToPascalCase)}}
@@ -21,6 +23,7 @@ func New{{.Entity | ToPascalCase}}Service(r {{$repoType}}) *{{.Entity | ToPascal
 }
 
 func (s *{{.Entity | ToPascalCase}}Service) Create(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	logger.S().Infow("creating {{.Entity | ToLower}}", "name", m.Name)
 	return s.repo.Create(ctx, m)
 }
 
@@ -33,9 +36,11 @@ func (s *{{.Entity | ToPascalCase}}Service) List(ctx context.Context) ([]*ent.{{
 }
 
 func (s *{{.Entity | ToPascalCase}}Service) Update(ctx context.Context, m *ent.{{.Entity | ToPascalCase}}) error {
+	logger.S().Infow("updating {{.Entity | ToLower}}", "id", m.ID)
 	return s.repo.Update(ctx, m)
 }
 
 func (s *{{.Entity | ToPascalCase}}Service) Delete(ctx context.Context, id int64) error {
+	logger.S().Infow("deleting {{.Entity | ToLower}}", "id", id)
 	return s.repo.Delete(ctx, id)
 }

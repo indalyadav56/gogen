@@ -1,0 +1,8 @@
+package {{.Package}}
+
+// Role groups a set of permissions under a name (e.g. "admin", "user").
+type Role struct {
+	ID          int64    `json:"id"`
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+}

@@ -2,26 +2,41 @@ package main
 
 {{- if eq .Router "gin"}}
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"{{.Module}}/config"
 	"{{.Module}}/internal/handler"
 	"{{.Module}}/internal/repository"
 	"{{.Module}}/internal/service"
 	"{{.Module}}/pkg/db"
+	"{{.Module}}/pkg/logger"
+{{- if .Auth}}
+
+	authapp "{{.Module}}/internal/auth/application"
+	authpg "{{.Module}}/internal/auth/infrastructure/postgres"
+	authhdl "{{.Module}}/internal/auth/transport/http/v1/handlers"
+	authmw "{{.Module}}/internal/auth/transport/http/middleware"
+	authrt "{{.Module}}/internal/auth/transport/http/v1/routes"
+{{- end}}
+{{- if ne .Frontend "none"}}
+
+	frontend "{{.Module}}/web"
+{{- end}}
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		panic(err)
 	}
+
+	lg := logger.Init(cfg.Log.Level, cfg.Log.File)
+	defer func() { _ = lg.Sync() }()
 
 	database, err := db.New(cfg.Database.URL)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		lg.Fatal("database connection failed", zap.Error(err))
 	}
 	defer database.Close()
 
@@ -33,35 +48,62 @@ func main() {
 	{{. | ToCamelCase}}Handler := handler.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
 	{{. | ToCamelCase}}Handler.RegisterRoutes(v1)
 {{end}}
-	log.Printf("listening on :%s", cfg.Server.Port)
+{{- if .Auth}}
+	authSvc := authapp.NewAuthService(
+		authpg.NewUserRepository(database),
+		authpg.NewRoleRepository(database),
+		cfg.Auth.Secret, cfg.Auth.AccessTTL, cfg.Auth.RefreshTTL,
+	)
+	authrt.RegisterAuthRoutes(v1, authhdl.NewAuthHandler(authSvc), authmw.New(cfg.Auth.Secret))
+{{- end}}
+{{- if ne .Frontend "none"}}
+	r.NoRoute(gin.WrapH(frontend.Handler()))
+{{- end}}
+	lg.Info("server starting", zap.String("port", cfg.Server.Port))
 	if err := r.Run(":" + cfg.Server.Port); err != nil {
-		log.Fatal(err)
+		lg.Fatal("server stopped", zap.Error(err))
 	}
 }
 {{- else}}
 import (
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"{{.Module}}/config"
 	"{{.Module}}/internal/handler"
 	"{{.Module}}/internal/repository"
 	"{{.Module}}/internal/service"
 	"{{.Module}}/pkg/db"
+	"{{.Module}}/pkg/logger"
+{{- if .Auth}}
+
+	authapp "{{.Module}}/internal/auth/application"
+	authpg "{{.Module}}/internal/auth/infrastructure/postgres"
+	authhdl "{{.Module}}/internal/auth/transport/http/v1/handlers"
+	authmw "{{.Module}}/internal/auth/transport/http/middleware"
+	authrt "{{.Module}}/internal/auth/transport/http/v1/routes"
+{{- end}}
+{{- if ne .Frontend "none"}}
+
+	frontend "{{.Module}}/web"
+{{- end}}
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		panic(err)
 	}
+
+	lg := logger.Init(cfg.Log.Level, cfg.Log.File)
+	defer func() { _ = lg.Sync() }()
 
 	database, err := db.New(cfg.Database.URL)
 	if err != nil {
-		log.Fatalf("db: %v", err)
+		lg.Fatal("database connection failed", zap.Error(err))
 	}
 	defer database.Close()
 
@@ -73,13 +115,30 @@ func main() {
 	{{. | ToCamelCase}}Svc := service.New{{. | ToPascalCase}}Service({{. | ToCamelCase}}Repo)
 	{{. | ToCamelCase}}Handler := handler.New{{. | ToPascalCase}}Handler({{. | ToCamelCase}}Svc)
 {{end}}
+{{- if .Auth}}
+	authSvc := authapp.NewAuthService(
+		authpg.NewUserRepository(database),
+		authpg.NewRoleRepository(database),
+		cfg.Auth.Secret, cfg.Auth.AccessTTL, cfg.Auth.RefreshTTL,
+	)
+	authHandler := authhdl.NewAuthHandler(authSvc)
+	authMW := authmw.New(cfg.Auth.Secret)
+{{- end}}
 	r.Route("/api/v1", func(r chi.Router) {
 {{- range .Entities}}
 		{{. | ToCamelCase}}Handler.RegisterRoutes(r)
 {{- end}}
+{{- if .Auth}}
+		authrt.RegisterAuthRoutes(r, authHandler, authMW)
+{{- end}}
 	})
+{{- if ne .Frontend "none"}}
+	r.Handle("/*", frontend.Handler())
+{{- end}}
 
-	log.Printf("listening on :%s", cfg.Server.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Server.Port, r))
+	lg.Info("server starting", zap.String("port", cfg.Server.Port))
+	if err := http.ListenAndServe(":"+cfg.Server.Port, r); err != nil {
+		lg.Fatal("server stopped", zap.Error(err))
+	}
 }
 {{- end}}

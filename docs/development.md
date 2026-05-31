@@ -11,7 +11,10 @@ gogen/
 │   ├── blueprint/           # one file per architecture; the "what to generate"
 │   ├── template/            # renderer, shared Data/Imports, helper funcs
 │   ├── generator/           # orchestration: blueprint → render → go mod
-│   └── gomod/               # `go mod init` / `go mod tidy` wrappers
+│   ├── gomod/               # `go mod init` / `go mod tidy` wrappers
+│   ├── logx/                # gogen's own zap logger (level via GOGEN_LOG)
+│   └── server/              # `gogen serve` server (handlers, preview, zip)
+├── web/                     # web UI assets (index.html), embedded via embed.go
 ├── templates/               # ~20 reusable text/templates
 └── docs/
 ```
@@ -63,6 +66,12 @@ That's it — no engine changes are needed.
 | `ToCamelCase` | `{{.Entity \| ToCamelCase}}` | `user` |
 | `ToLower` / `ToUpper` | `{{.Entity \| ToLower}}` | `user` |
 | `Plural` | `{{.Entity \| ToLower \| Plural}}` | `users`, `categories`, `boxes` |
+
+## Logging
+
+gogen logs through `internal/logx` (a zap console logger) to **stderr**, keeping
+**stdout** for command results. Set the level with `GOGEN_LOG=debug` to see
+per-file render logs, `go mod` steps, and (under `gogen serve`) per-request logs.
 
 ## Building & testing
 

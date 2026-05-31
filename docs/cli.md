@@ -2,10 +2,24 @@
 
 ```
 gogen [new] --module <path> [--arch <arch>] [--router <router>] [--db <db>] [--entity <Name> ...]
+gogen serve [--port <n>]
 ```
 
 The optional `new` subcommand is accepted and ignored, so both
 `gogen --module …` and `gogen new --module …` work.
+
+## `gogen serve` — web UI
+
+Starts a local browser configurator: choose architecture/router/db/entities,
+preview the structure live, and download the project as a `.zip`.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port` | `7720` | Preferred port. If it's busy, a free OS-assigned port is used instead, so it never collides with other services. |
+
+The server binds to `127.0.0.1` only and tries to open your browser
+automatically. The downloaded zip contains a `go.mod`; run `go mod tidy` after
+extracting.
 
 ## Flags
 
@@ -16,6 +30,14 @@ The optional `new` subcommand is accepted and ignored, so both
 | `--router` | `gin` | `gin`, `chi` | HTTP router used in generated handlers, routes, and `main`. |
 | `--db` | `postgres` | `postgres` | Database driver wired into `pkg/db` and config. |
 | `--entity` | `Item` | any identifier; repeatable | Resource to scaffold. Repeat for several: `--entity User --entity Order`. Comma-separated values are also accepted. |
+| `--auth` | `false` | flag | Include a JWT + RBAC auth module (`internal/auth` + `pkg/auth`). Rejected for `--arch simple`. |
+| `--frontend` | `none` | `none`, `html`, `htmx`, `react` | Add a frontend layer in `web/`, served by the Go app. Available for every architecture. |
+
+## Environment
+
+| Var | Description |
+|-----|-------------|
+| `GOGEN_LOG` | gogen's own log level (`debug`/`info`/`warn`/`error`, default `info`). Logs go to stderr; command results to stdout. |
 
 Invalid values for `--arch`, `--router`, or `--db` fail fast with a clear error.
 

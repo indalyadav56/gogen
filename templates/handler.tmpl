@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	svc "{{.Imports.Service}}"
+	"{{.Module}}/pkg/logger"
 )
 
 // {{$P}}Handler exposes {{.Entity | ToLower}} HTTP endpoints.
@@ -33,11 +34,30 @@ func (h *{{$P}}Handler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 {{- end}}
 
-func (h *{{$P}}Handler) List(c *gin.Context)   { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
-func (h *{{$P}}Handler) Create(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
-func (h *{{$P}}Handler) Get(c *gin.Context)    { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
-func (h *{{$P}}Handler) Update(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
-func (h *{{$P}}Handler) Delete(c *gin.Context) { c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"}) }
+func (h *{{$P}}Handler) List(c *gin.Context) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.List")
+	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+}
+
+func (h *{{$P}}Handler) Create(c *gin.Context) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Create")
+	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+}
+
+func (h *{{$P}}Handler) Get(c *gin.Context) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Get")
+	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+}
+
+func (h *{{$P}}Handler) Update(c *gin.Context) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Update")
+	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+}
+
+func (h *{{$P}}Handler) Delete(c *gin.Context) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Delete")
+	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+}
 {{- else}}
 import (
 	"encoding/json"
@@ -48,6 +68,7 @@ import (
 {{- end}}
 
 	svc "{{.Imports.Service}}"
+	"{{.Module}}/pkg/logger"
 )
 
 // {{$P}}Handler exposes {{.Entity | ToLower}} HTTP endpoints.
@@ -73,11 +94,30 @@ func (h *{{$P}}Handler) RegisterRoutes(r chi.Router) {
 }
 {{- end}}
 
-func (h *{{$P}}Handler) List(w http.ResponseWriter, r *http.Request)   { h.writeJSON(w) }
-func (h *{{$P}}Handler) Create(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
-func (h *{{$P}}Handler) Get(w http.ResponseWriter, r *http.Request)    { h.writeJSON(w) }
-func (h *{{$P}}Handler) Update(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
-func (h *{{$P}}Handler) Delete(w http.ResponseWriter, r *http.Request) { h.writeJSON(w) }
+func (h *{{$P}}Handler) List(w http.ResponseWriter, r *http.Request) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.List")
+	h.writeJSON(w)
+}
+
+func (h *{{$P}}Handler) Create(w http.ResponseWriter, r *http.Request) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Create")
+	h.writeJSON(w)
+}
+
+func (h *{{$P}}Handler) Get(w http.ResponseWriter, r *http.Request) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Get")
+	h.writeJSON(w)
+}
+
+func (h *{{$P}}Handler) Update(w http.ResponseWriter, r *http.Request) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Update")
+	h.writeJSON(w)
+}
+
+func (h *{{$P}}Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	logger.S().Warnw("not implemented", "handler", "{{$P}}.Delete")
+	h.writeJSON(w)
+}
 
 func (h *{{$P}}Handler) writeJSON(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")

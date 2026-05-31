@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Project}}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+{{- if eq .Frontend "htmx"}}
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+{{- end}}
+</head>
+<body>
+  <main>
+    <h1>🚀 {{.Project}}</h1>
+    <p>Your Go backend is live. The API is served under <code>/api/v1</code>.</p>
+{{- if eq .Frontend "htmx"}}
+    <button hx-get="/ui/hello" hx-target="#out" hx-swap="innerHTML">Say hello (htmx)</button>
+    <div id="out" class="out"></div>
+{{- else}}
+    <button id="ping">Ping the API</button>
+    <pre id="out" class="out"></pre>
+    <script>
+      document.getElementById('ping').addEventListener('click', async () => {
+        const out = document.getElementById('out');
+        try {
+          const res = await fetch('/api/v1/');
+          out.textContent = res.status + ' ' + res.statusText;
+        } catch (e) {
+          out.textContent = e.message;
+        }
+      });
+    </script>
+{{- end}}
+  </main>
+</body>
+</html>

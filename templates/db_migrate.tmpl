@@ -1,0 +1,38 @@
+package db
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// RunMigrations applies every .sql file in dir, in lexical filename order.
+// Statements should be idempotent (e.g. CREATE TABLE IF NOT EXISTS).
+func RunMigrations(database *sql.DB, dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			files = append(files, e.Name())
+		}
+	}
+	sort.Strings(files)
+
+	for _, name := range files {
+		stmt, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return 0, err
+		}
+		if _, err := database.Exec(string(stmt)); err != nil {
+			return 0, fmt.Errorf("migration %s: %w", name, err)
+		}
+	}
+	return len(files), nil
+}

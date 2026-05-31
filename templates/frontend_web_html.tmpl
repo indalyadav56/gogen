@@ -1,0 +1,28 @@
+package web
+
+import (
+	"embed"
+	"net/http"
+)
+
+//go:embed index.html static
+var assets embed.FS
+
+// Handler serves the embedded {{.Frontend}} frontend: the index page and static
+// assets{{if eq .Frontend "htmx"}}, plus server-rendered htmx fragments{{end}}.
+func Handler() http.Handler {
+	mux := http.NewServeMux()
+{{- if eq .Frontend "htmx"}}
+	mux.HandleFunc("/ui/hello", hello)
+{{- end}}
+	mux.Handle("/", http.FileServer(http.FS(assets)))
+	return mux
+}
+{{- if eq .Frontend "htmx"}}
+
+// hello returns an HTML fragment that htmx swaps into the page.
+func hello(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(`<p class="ok">👋 Hello from the server — swapped in by htmx.</p>`))
+}
+{{- end}}

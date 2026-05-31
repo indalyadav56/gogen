@@ -1,0 +1,11 @@
+// API client for the Go backend. In dev, Vite proxies /api to the backend
+// (see vite.config.js); in production the Go server serves this app and the API
+// from the same origin.
+export async function ping() {
+  try {
+    const res = await fetch('/api/v1/')
+    return `${res.status} ${res.statusText}`
+  } catch (e) {
+    return e.message
+  }
+}

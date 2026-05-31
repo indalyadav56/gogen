@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gogen — Go project scaffolder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          mono: ['SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  /* Slim scrollbars for the panels. */
+  .scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 8px; }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body class="h-full flex flex-col bg-zinc-950 text-zinc-200 font-sans overflow-hidden antialiased">
+
+  <!-- Header -->
+  <header class="shrink-0 h-14 border-b border-zinc-800/80 flex items-center gap-3 px-6 bg-zinc-950/80 backdrop-blur">
+    <span class="text-lg">🚀</span>
+    <h1 class="text-base font-semibold tracking-tight text-zinc-100">gogen</h1>
+    <span class="text-sm text-zinc-500 hidden sm:block">configure a Go project · preview the structure · download the zip</span>
+  </header>
+
+  <!-- Body: two full-height columns -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 min-h-0">
+
+    <!-- Left: configuration (form scrolls, footer pinned) -->
+    <section class="flex flex-col min-h-0 lg:border-r border-zinc-800/80">
+      <div class="flex-1 overflow-y-auto scroll px-6 py-5 space-y-6 min-h-0">
+
+        <div>
+          <label for="module" class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Go module path</label>
+          <input id="module" type="text" value="github.com/you/myapp" spellcheck="false"
+            class="w-full rounded-lg bg-zinc-900 border border-zinc-700/80 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition">
+        </div>
+
+        <div>
+          <span class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Architecture</span>
+          <div id="archs" class="grid gap-2"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="router" class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Router</label>
+            <select id="router" class="w-full rounded-lg bg-zinc-900 border border-zinc-700/80 px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition"></select>
+          </div>
+          <div>
+            <label for="db" class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Database</label>
+            <select id="db" class="w-full rounded-lg bg-zinc-900 border border-zinc-700/80 px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition"></select>
+          </div>
+        </div>
+
+        <div>
+          <label for="frontend" class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Frontend</label>
+          <select id="frontend" class="w-full rounded-lg bg-zinc-900 border border-zinc-700/80 px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition"></select>
+          <p class="mt-1 text-xs text-zinc-600">Go serves the frontend: <code>html</code>/<code>htmx</code> embed static assets, <code>react</code> embeds a built Vite app.</p>
+        </div>
+
+        <div>
+          <span class="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Authentication</span>
+          <label id="authRow" class="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-3 cursor-pointer transition hover:border-zinc-700">
+            <input id="auth" type="checkbox" class="mt-0.5 h-4 w-4 rounded accent-emerald-500">
+            <span class="leading-tight">
+              <span class="block text-sm font-semibold text-zinc-100">JWT auth + RBAC</span>
+              <span class="block text-xs text-zinc-400">Register/login/refresh, roles &amp; permissions, auth middleware</span>
+              <span id="authNote" class="hidden mt-1 text-xs text-amber-400/80">Not available for the <code>simple</code> architecture.</span>
+            </span>
+          </label>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Entities</span>
+            <button id="addEntity" type="button"
+              class="text-xs font-medium text-emerald-400 hover:text-emerald-300 transition">+ Add entity</button>
+          </div>
+          <div id="entities" class="space-y-2"></div>
+        </div>
+
+      </div>
+
+      <!-- Pinned footer: always visible, no scrolling needed -->
+      <div class="shrink-0 border-t border-zinc-800/80 px-6 py-4 bg-zinc-950">
+        <button id="generate" type="button"
+          class="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-emerald-950 font-semibold py-3 text-sm transition shadow-lg shadow-emerald-500/20">
+          Generate &amp; download .zip
+        </button>
+        <p id="msg" class="mt-2 text-xs min-h-[1rem] text-zinc-500"></p>
+      </div>
+    </section>
+
+    <!-- Right: structure preview (scrolls independently) -->
+    <section class="flex flex-col min-h-0 bg-zinc-900/30">
+      <div class="shrink-0 flex items-center justify-between px-6 pt-5 pb-3">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Structure preview</span>
+        <span id="fileCount" class="text-[11px] text-zinc-600"></span>
+      </div>
+      <div class="flex-1 overflow-auto scroll px-6 pb-6 min-h-0">
+        <pre id="tree" class="font-mono text-[12.5px] leading-relaxed text-zinc-400 whitespace-pre">Loading…</pre>
+      </div>
+    </section>
+
+  </main>
+
+<script>
+const ARCH_DESC = {
+  simple: "Flat package main, in-memory store — prototypes & small tools",
+  layered: "Classic N-tier: model / repository / service / handler",
+  clean: "Clean/Hexagonal: domain / application / infrastructure / transport",
+  microservice: "Clean + gRPC, /healthz, graceful shutdown, docker-compose",
+  monolith: "DDD modular monolith: one bounded context per entity",
+};
+const ARCH_SEL = "border-emerald-500/70 bg-emerald-500/10 ring-1 ring-emerald-500/40";
+const ARCH_IDLE = "border-zinc-800 bg-zinc-900 hover:border-zinc-700";
+let selectedArch = "clean";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function msg(text, kind) {
+  const m = $("msg");
+  m.textContent = text;
+  m.className = "mt-2 text-xs min-h-[1rem] " +
+    (kind === "err" ? "text-red-400" : kind === "ok" ? "text-emerald-400" : "text-zinc-500");
+}
+
+async function loadOptions() {
+  const opts = await (await fetch("/api/options")).json();
+  if (!opts.architectures.includes(selectedArch)) selectedArch = opts.architectures[0];
+  const archs = $("archs");
+  archs.innerHTML = "";
+  opts.architectures.forEach((a) => {
+    const el = document.createElement("label");
+    el.dataset.arch = a;
+    el.className = "arch flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition " +
+      (a === selectedArch ? ARCH_SEL : ARCH_IDLE);
+    el.innerHTML =
+      `<input type="radio" name="arch" value="${a}" class="mt-0.5 accent-emerald-500" ${a === selectedArch ? "checked" : ""}>
+       <span class="leading-tight">
+         <span class="block text-sm font-semibold text-zinc-100">${a}</span>
+         <span class="block text-xs text-zinc-400">${ARCH_DESC[a] || ""}</span>
+       </span>`;
+    el.querySelector("input").addEventListener("change", () => { selectedArch = a; styleArchs(); syncAuth(); preview(); });
+    archs.appendChild(el);
+  });
+  fillSelect("router", opts.routers);
+  fillSelect("db", opts.databases);
+  fillSelect("frontend", opts.frontends || ["none"]);
+}
+
+function styleArchs() {
+  document.querySelectorAll(".arch").forEach((el) => {
+    el.className = "arch flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition " +
+      (el.dataset.arch === selectedArch ? ARCH_SEL : ARCH_IDLE);
+  });
+}
+
+function fillSelect(id, values) {
+  const s = $(id);
+  s.innerHTML = "";
+  values.forEach((v) => { const o = document.createElement("option"); o.value = v; o.textContent = v; s.appendChild(o); });
+  s.addEventListener("change", preview);
+}
+
+function addEntity(name, focus) {
+  const row = document.createElement("div");
+  row.className = "flex gap-2";
+  row.innerHTML =
+    `<input type="text" value="${name || ""}" placeholder="EntityName" spellcheck="false"
+       class="flex-1 rounded-lg bg-zinc-900 border border-zinc-700/80 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/60 transition">
+     <button type="button" class="shrink-0 rounded-lg border border-zinc-700/80 px-3 text-zinc-500 hover:text-red-400 hover:border-red-500/50 transition">✕</button>`;
+  const input = row.querySelector("input");
+  input.addEventListener("input", debounce(preview, 350));
+  row.querySelector("button").addEventListener("click", () => { row.remove(); preview(); });
+  $("entities").appendChild(row);
+  if (focus) {
+    input.scrollIntoView({ block: "nearest" });
+    input.focus();
+  }
+}
+
+function gather() {
+  return {
+    module: $("module").value,
+    arch: selectedArch,
+    router: $("router").value,
+    db: $("db").value,
+    frontend: $("frontend").value,
+    auth: $("auth").checked,
+    entities: [...document.querySelectorAll("#entities input")].map((i) => i.value.trim()).filter(Boolean),
+  };
+}
+
+// Auth isn't supported for the 'simple' arch — disable the toggle there.
+function syncAuth() {
+  const disabled = selectedArch === "simple";
+  const cb = $("auth");
+  cb.disabled = disabled;
+  if (disabled) cb.checked = false;
+  $("authNote").classList.toggle("hidden", !disabled);
+  $("authRow").classList.toggle("opacity-50", disabled);
+  $("authRow").classList.toggle("cursor-not-allowed", disabled);
+  $("authRow").classList.toggle("cursor-pointer", !disabled);
+}
+
+async function preview() {
+  try {
+    const res = await fetch("/api/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(gather()) });
+    const data = await res.json();
+    if (!res.ok) { $("tree").innerHTML = '<span class="text-red-400">⚠ ' + esc(data.error || res.statusText) + "</span>"; $("fileCount").textContent = ""; return; }
+    $("tree").innerHTML = treeHTML(data.project, data.files);
+    $("fileCount").textContent = data.files.length + " files";
+  } catch (e) { $("tree").innerHTML = '<span class="text-red-400">⚠ ' + esc(e.message) + "</span>"; }
+}
+
+function treeHTML(project, files) {
+  // Build a nested tree { dirs:{name:node}, files:[name] } from the paths.
+  const root = { dirs: {}, files: [] };
+  files.forEach((path) => {
+    const parts = path.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      node.dirs[parts[i]] = node.dirs[parts[i]] || { dirs: {}, files: [] };
+      node = node.dirs[parts[i]];
+    }
+    node.files.push(parts[parts.length - 1]);
+  });
+
+  const branch = (s) => `<span class="text-zinc-700">${s}</span>`;
+  const render = (node, prefix) => {
+    const entries = [
+      ...Object.keys(node.dirs).sort().map((n) => ({ name: n, dir: true })),
+      ...node.files.slice().sort().map((n) => ({ name: n, dir: false })),
+    ];
+    let out = "";
+    entries.forEach((e, i) => {
+      const last = i === entries.length - 1;
+      const cls = e.dir ? "text-sky-400" : "text-zinc-300";
+      out += branch(prefix + (last ? "└── " : "├── ")) + `<span class="${cls}">${esc(e.name)}${e.dir ? "/" : ""}</span>\n`;
+      if (e.dir) out += render(node.dirs[e.name], prefix + (last ? "    " : "│   "));
+    });
+    return out;
+  };
+  return `<span class="text-sky-400 font-semibold">${esc(project)}/</span>\n` + render(root, "");
+}
+
+async function generate() {
+  msg("Generating…");
+  try {
+    const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(gather()) });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); msg(e.error || "Error " + res.status, "err"); return; }
+    const blob = await res.blob();
+    const name = (res.headers.get("Content-Disposition") || "").match(/filename="?([^"]+)"?/);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name ? name[1] : "project.zip";
+    document.body.appendChild(a); a.click(); a.remove();
+    msg("Downloaded " + a.download + " — extract, then run `go mod tidy`.", "ok");
+  } catch (e) { msg(e.message, "err"); }
+}
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+$("module").addEventListener("input", debounce(preview, 350));
+$("addEntity").addEventListener("click", () => addEntity("", true));
+$("auth").addEventListener("change", preview);
+$("generate").addEventListener("click", generate);
+
+(async () => {
+  await loadOptions();
+  syncAuth();
+  addEntity("User");
+  addEntity("Product");
+  preview();
+})();
+</script>
+</body>
+</html>

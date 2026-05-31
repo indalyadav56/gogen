@@ -1,0 +1,136 @@
+package {{.Package}}
+
+{{- if eq .Router "gin"}}
+import (
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+
+	"{{.Module}}/pkg/auth"
+)
+
+const claimsKey = "auth.claims"
+
+// Middleware enforces authentication and RBAC on routes.
+type Middleware struct {
+	secret string
+}
+
+// New builds an auth middleware that validates tokens with the given secret.
+func New(secret string) *Middleware {
+	return &Middleware{secret: secret}
+}
+
+// RequireAuth rejects requests without a valid Bearer token and stores the claims.
+func (m *Middleware) RequireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, err := auth.Parse(m.secret, bearer(c.GetHeader("Authorization")))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Set(claimsKey, claims)
+		c.Next()
+	}
+}
+
+// RequirePermission allows the request only if the caller holds the permission.
+func (m *Middleware) RequirePermission(permission string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, ok := ClaimsFromGin(c)
+		if !ok || !hasPermission(claims.Permissions, permission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// ClaimsFromGin returns the claims stored by RequireAuth.
+func ClaimsFromGin(c *gin.Context) (*auth.Claims, bool) {
+	v, ok := c.Get(claimsKey)
+	if !ok {
+		return nil, false
+	}
+	claims, ok := v.(*auth.Claims)
+	return claims, ok
+}
+{{- else}}
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"{{.Module}}/pkg/auth"
+)
+
+type ctxKey struct{}
+
+// Middleware enforces authentication and RBAC on routes.
+type Middleware struct {
+	secret string
+}
+
+// New builds an auth middleware that validates tokens with the given secret.
+func New(secret string) *Middleware {
+	return &Middleware{secret: secret}
+}
+
+// RequireAuth rejects requests without a valid Bearer token and stores the claims.
+func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, err := auth.Parse(m.secret, bearer(r.Header.Get("Authorization")))
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		ctx := context.WithValue(r.Context(), ctxKey{}, claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// RequirePermission allows the request only if the caller holds the permission.
+func (m *Middleware) RequirePermission(permission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := ClaimsFromContext(r.Context())
+			if !ok || !hasPermission(claims.Permissions, permission) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// ClaimsFromContext returns the claims stored by RequireAuth.
+func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
+	claims, ok := ctx.Value(ctxKey{}).(*auth.Claims)
+	return claims, ok
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+{{- end}}
+
+func bearer(header string) string {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1]
+	}
+	return ""
+}
+
+func hasPermission(perms []string, want string) bool {
+	for _, p := range perms {
+		if p == want {
+			return true
+		}
+	}
+	return false
+}
