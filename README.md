@@ -126,7 +126,13 @@ templates/       → reusable text/templates
 ```bash
 go build ./...     # build the tool
 go test ./...      # unit tests + per-arch parse checks
-task run           # generate an example project
+task run           # generate a sample project
+task serve         # launch the web UI
+
+# argument-based generation (auth / frontend / arch / router):
+task gen ARCH=monolith FRONTEND=react AUTH=true
+task example:auth        # clean + JWT auth → examples/
+task example:fullstack   # monolith + react + auth → examples/
 ```
 
 ## 📝 License

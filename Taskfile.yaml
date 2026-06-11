@@ -9,6 +9,20 @@ tasks:
     cmds:
       - go run ./cmd/gogen --module github.com/indalyadav/example-project --arch clean --router gin --entity User --entity Product
 
+  gen:
+    desc: >-
+      Generate a project with any flags (argument-based). Vars: MODULE, ARCH,
+      ROUTER, FRONTEND, AUTH, ENTITIES.
+      e.g. `task gen ARCH=monolith FRONTEND=react AUTH=true`
+    cmds:
+      - >-
+        go run ./cmd/gogen
+        --module {{.MODULE | default "github.com/you/app"}}
+        --arch {{.ARCH | default "clean"}}
+        --router {{.ROUTER | default "gin"}}
+        --frontend {{.FRONTEND | default "none"}}
+        {{if eq (.AUTH | default "") "true"}}--auth {{end}}{{.ENTITIES}}
+
   serve:
     desc: Start the web UI (browser configurator)
     cmds:
@@ -29,6 +43,8 @@ tasks:
       - task: example:clean
       - task: example:microservice
       - task: example:monolith
+      - task: example:auth
+      - task: example:fullstack
       - 'echo "✅ examples generated in ./examples"'
 
   example:simple:
@@ -65,6 +81,20 @@ tasks:
     cmds:
       - mkdir -p examples
       - cd examples && rm -rf monolith-example && ../gogen --module github.com/indalyadav/monolith-example --arch monolith --router chi {{.ENTITIES}}
+
+  example:auth:
+    desc: Generate a 'clean + JWT auth' example (examples/auth-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf auth-example && ../gogen --module github.com/indalyadav/auth-example --arch clean --router gin --auth {{.ENTITIES}}
+
+  example:fullstack:
+    desc: Generate a fullstack 'monolith + react + auth' example (examples/fullstack-example)
+    deps: [build]
+    cmds:
+      - mkdir -p examples
+      - cd examples && rm -rf fullstack-example && ../gogen --module github.com/indalyadav/fullstack-example --arch monolith --router gin --frontend react --auth {{.ENTITIES}}
 
   clean-examples:
     desc: Remove all generated example projects

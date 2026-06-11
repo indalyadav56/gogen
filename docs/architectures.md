@@ -45,11 +45,11 @@ registration lives on the handler (`RegisterRoutes`).
 demo/
 ├── cmd/server/main.go
 ├── internal/
+│   ├── config/config.go  # Viper loader
 │   ├── model/         # User, Product structs
 │   ├── repository/    # *UserRepository (Postgres), *ProductRepository
 │   ├── service/       # UserService, ProductService
 │   └── handler/       # UserHandler.RegisterRoutes, ProductHandler.RegisterRoutes
-├── config/config.go   # Viper loader
 ├── configs/config.yaml
 ├── pkg/
 │   ├── db/db.go       # Postgres connection
@@ -73,6 +73,7 @@ demo/
 │   ├── migrator/main.go   # applies migrations/postgres/*.sql
 │   └── seed/main.go       # dev seed data
 ├── internal/
+│   ├── config/config.go   # Viper loader (base.yaml + APP_ENV)
 │   ├── di/container.go    # composition root (wires repos → services → handlers)
 │   ├── server/http/
 │   │   ├── router.go      # NewRouter(c *di.Container)
@@ -115,7 +116,7 @@ demo/
 │   └── transport/grpc/server.go    # gRPC server wrapper
 ├── proto/                          # put your .proto files here
 ├── docker-compose.yml
-├── config/ · configs/ · pkg/ · migrations/
+├── internal/config/ · configs/ · pkg/ · migrations/
 └── Dockerfile · Taskfile.yaml · .env.example · README.md · go.mod
 ```
 
@@ -139,7 +140,7 @@ demo/
 │   │   └── transport/http/v1/{handlers,routes,dto}/
 │   └── product/
 │       └── … (same structure)
-├── config/ · configs/ · pkg/{db,logger}/ · migrations/
+├── internal/config/ · configs/ · pkg/{db,logger}/ · migrations/
 └── Dockerfile · Taskfile.yaml · .env.example · README.md · go.mod
 ```
 
@@ -172,7 +173,7 @@ The DDD architectures ship extra structure modelled on real-world services:
 ## Configuration
 
 Config is loaded with [Viper](https://github.com/spf13/viper) into a typed
-`Config{ Server, Database, Log }` by `config/config.go` (`simple` uses an inline
+`Config{ Server, Database, Log }` by `internal/config/config.go` (`simple` uses an inline
 `loadConfig()`). Precedence is defaults → YAML → environment variables
 (`SERVER_PORT`, `DATABASE_URL`, `LOG_LEVEL`, …).
 

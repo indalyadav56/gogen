@@ -48,7 +48,7 @@ func lower(s string) string { return strings.ToLower(s) }
 // rich DDD architectures vs layered).
 func commonFiles() []FileSpec {
 	return []FileSpec{
-		{Path: "config/config.go", Template: "config.tmpl", Package: "config"},
+		{Path: "internal/config/config.go", Template: "config.tmpl", Package: "config"},
 		{Path: "pkg/db/db.go", Template: "pkg_db.tmpl", Package: "db"},
 		{Path: "pkg/logger/logger.go", Template: "pkg_logger.tmpl", Package: "logger"},
 		{Path: "Dockerfile", Template: "dockerfile.tmpl"},
