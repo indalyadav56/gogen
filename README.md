@@ -34,6 +34,21 @@ from a flat prototype to a DDD modular monolith — with a selectable HTTP route
   and `pkg/db` (Postgres). Microservice adds healthcheck, graceful shutdown, a
   gRPC server stub, and `docker-compose.yml`.
 
+## 📦 Install
+
+With Homebrew (macOS or Linux):
+
+```bash
+brew install indalyadav56/tap/gogen
+gogen --version
+```
+
+Or build from source with Go 1.24+:
+
+```bash
+go install github.com/indalyadav56/gogen/cmd/gogen@latest
+```
+
 ## 🏁 Quick start
 
 ```bash

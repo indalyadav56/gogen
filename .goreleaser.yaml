@@ -1,0 +1,61 @@
+version: 2
+
+project_name: gogen
+
+builds:
+  - id: gogen
+    main: ./cmd/gogen
+    binary: gogen
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+# Publishes Formula/gogen.rb to the Homebrew tap so users can run:
+#   brew install indalyadav56/tap/gogen
+brews:
+  - name: gogen
+    repository:
+      owner: indalyadav56
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/indalyadav56/gogen"
+    description: "Scaffold production-shaped Go backends in five architectures"
+    license: "MIT"
+    install: |
+      bin.install "gogen"
+    test: |
+      assert_match "gogen #{version}", shell_output("#{bin}/gogen --version")
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "gogen {{ .Tag }}"

@@ -1,0 +1,36 @@
+# Builds binaries for macOS/Linux, publishes a GitHub Release, and updates the
+# Homebrew tap (indalyadav56/homebrew-tap) — triggered by pushing a tag like v1.0.6.
+#
+# Requires a repo secret HOMEBREW_TAP_GITHUB_TOKEN: a token with "Contents: write"
+# on indalyadav56/homebrew-tap.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

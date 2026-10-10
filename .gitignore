@@ -2,6 +2,9 @@
 /gogen
 /bin/
 
+# GoReleaser output
+/dist/
+
 # Scratch / generated example projects
 example-project/
 examples/

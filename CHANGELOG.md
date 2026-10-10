@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format is based on
   test parses every produced `.go` file across all architectures and routers.
 
 ### Added
+- **Homebrew installation**: `brew install indalyadav56/tap/gogen`. Tagged
+  releases (`v*`) are built with GoReleaser for macOS and Linux (amd64/arm64),
+  published to GitHub Releases, and the formula is pushed to the
+  `indalyadav56/homebrew-tap` repo. `gogen --version` prints the release version.
 - **Production-grade DDD scaffolding** for `clean`, `microservice` and `monolith`
   (modelled on a real-world reference monolith):
   - `internal/di` composition root + a thin `cmd/server/main` with graceful
