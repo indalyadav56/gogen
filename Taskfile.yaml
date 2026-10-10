@@ -32,6 +32,10 @@ tasks:
     desc: Build the gogen binary
     cmd: go build -o gogen ./cmd/gogen
 
+  release-snapshot:
+    desc: Build release archives + Homebrew formula locally (no publish, output in ./dist)
+    cmd: goreleaser release --snapshot --clean
+
   # ---- examples: one generated project per architecture, under ./examples ----
 
   examples:

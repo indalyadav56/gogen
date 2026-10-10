@@ -12,9 +12,18 @@ import (
 	"github.com/indalyadav56/gogen/internal/server"
 )
 
+// version is overridden at release time via -ldflags "-X main.version=..."
+// (see .goreleaser.yaml).
+var version = "dev"
+
 func main() {
 	log := logx.Init()
 	defer func() { _ = log.Sync() }()
+
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		fmt.Printf("gogen %s\n", version)
+		return
+	}
 
 	// `gogen serve [--port N]` starts the local web UI.
 	if len(os.Args) > 1 && os.Args[1] == "serve" {
